@@ -1,80 +1,336 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get Sakai running locally in minutes with this step-by-step guide for developers and administrators
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will help you build and run Sakai from source on your local machine. Perfect for developers, administrators evaluating Sakai, or anyone wanting to explore the platform.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+For production deployments, see the [Installation Guide](/installation). This quick start is designed for development and testing environments.
 </Note>
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<Steps>
+  <Step title="Java Development Kit 17">
+    Sakai requires Java 17. We recommend Eclipse Temurin (formerly AdoptOpenJDK).
+    
+    ```bash
+    # Verify Java version
+    java -version
+    ```
+    
+    Should output Java 17 or higher.
+  </Step>
+  
+  <Step title="Apache Maven 3.6+">
+    Maven is required to build Sakai from source.
+    
+    ```bash
+    # Verify Maven version
+    mvn -version
+    ```
+  </Step>
+  
+  <Step title="Apache Tomcat 9">
+    Download Tomcat 9 from [tomcat.apache.org](http://tomcat.apache.org)
+    
+    Extract to a directory like `/opt/tomcat9` or `C:\tomcat9`
+  </Step>
+  
+  <Step title="MySQL or MariaDB">
+    Sakai requires a database. MariaDB is recommended.
+    
+    ```bash
+    # Install MariaDB on Ubuntu/Debian
+    sudo apt-get install mariadb-server
+    
+    # Install on macOS with Homebrew
+    brew install mariadb
+    ```
+  </Step>
+</Steps>
+
+## Build Sakai from Source
+
+Clone the Sakai repository and build it:
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/sakaiproject/sakai.git
+    cd sakai
+    ```
+    
+    **Source**: `README.md:51-53`
+  </Step>
+  
+  <Step title="Build with Maven">
+    ```bash
+    mvn clean install
+    ```
+    
+    This will take 10-20 minutes on first build. Maven will download dependencies and compile all modules.
+    
+    **Source**: `README.md:16-19`
+    
+    <Tip>
+    Use `mvn clean install -DskipTests` to skip tests and speed up the build.
+    </Tip>
+  </Step>
+</Steps>
+
+## Configure Tomcat
+
+Sakai requires specific Tomcat configuration:
+
+<Steps>
+  <Step title="Set Environment Variables">
+    Create or edit `setenv.sh` (Linux/Mac) or `setenv.bat` (Windows) in Tomcat's `bin/` directory:
+    
+    ```bash
+    # Linux/Mac: bin/setenv.sh
+    export JAVA_OPTS="-server -Xms2g -Xmx2g -XX:+UseG1GC"
+    export JAVA_OPTS="$JAVA_OPTS --add-opens=java.base/java.lang=ALL-UNNAMED"
+    export JAVA_OPTS="$JAVA_OPTS --add-opens=java.base/java.time=ALL-UNNAMED"
+    export JAVA_OPTS="$JAVA_OPTS --add-opens=java.base/java.util=ALL-UNNAMED"
+    ```
+    
+    **Source**: `docker/tomcat/bin/setenv.sh:3-19`
+  </Step>
+  
+  <Step title="Create Sakai Directory">
+    ```bash
+    mkdir -p /path/to/tomcat/sakai
+    ```
+    
+    This directory will hold Sakai configuration and content.
+  </Step>
+</Steps>
+
+## Setup Database
+
+<Tabs>
+  <Tab title="Docker (Quick)">
+    Use Docker to run MariaDB quickly:
+    
+    ```bash
+    docker run -p 127.0.0.1:53306:3306 -d \
+      --name="sakai-mariadb" \
+      -e "MARIADB_ROOT_PASSWORD=sakairoot" \
+      -e "MARIADB_DATABASE=sakai" \
+      mariadb:10 --lower-case-table-names=1
+    ```
+    
+    **Source**: `docker/README.md:93-98`
+  </Tab>
+  
+  <Tab title="Native Install">
+    Create the Sakai database:
+    
+    ```sql
+    CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4;
+    GRANT ALL ON sakai.* TO 'sakai'@'localhost' IDENTIFIED BY 'sakai-password';
+    FLUSH PRIVILEGES;
+    ```
+    
+    Update Tomcat's `sakai/sakai.properties`:
+    
+    ```properties
+    url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai
+    username@javax.sql.BaseDataSource=sakai
+    password@javax.sql.BaseDataSource=sakai-password
+    ```
+  </Tab>
+</Tabs>
+
+## Deploy to Tomcat
+
+<Steps>
+  <Step title="Deploy Sakai">
+    From the Sakai source directory:
+    
+    ```bash
+    mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/tomcat
+    ```
+    
+    Replace `/path/to/tomcat` with your Tomcat installation directory.
+    
+    **Source**: `README.md:31-32`
+  </Step>
+  
+  <Step title="Start Tomcat">
+    ```bash
+    cd /path/to/tomcat/bin
+    ./startup.sh && tail -f ../logs/catalina.out
+    ```
+    
+    Wait for the message: `Server startup in [xxxxx] milliseconds`
+    
+    **Source**: `README.md:34-37`
+  </Step>
+  
+  <Step title="Access Sakai">
+    Open your browser to:
+    
+    ```
+    http://localhost:8080/portal
+    ```
+    
+    Default login credentials:
+    - **Username**: `admin`
+    - **Password**: `admin`
+    
+    **Source**: `README.md:40`
+  </Step>
+</Steps>
+
+## First Steps in Sakai
+
+After logging in, try these activities:
+
+<CardGroup cols={2}>
+  <Card title="Create a Site" icon="sitemap">
+    Navigate to **Sites** → **New Site** to create your first course or project site
+  </Card>
+  
+  <Card title="Add Tools" icon="wrench">
+    In your site, click **Site Info** → **Manage Tools** to add Assignments, Gradebook, Forums, etc.
+  </Card>
+  
+  <Card title="Create Content" icon="file">
+    Use the **Resources** tool to upload files and organize course materials
+  </Card>
+  
+  <Card title="Add Users" icon="users">
+    Go to **Sites** → **Membership** to add participants to your site
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+If you're developing Sakai tools or features:
+
+<Steps>
+  <Step title="Build Single Module">
+    After making changes to a specific module:
+    
+    ```bash
+    cd assignment
+    mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/tomcat
+    ```
+  </Step>
+  
+  <Step title="Restart Tomcat">
+    ```bash
+    /path/to/tomcat/bin/shutdown.sh
+    /path/to/tomcat/bin/startup.sh
+    ```
+  </Step>
+  
+  <Step title="Test Changes">
+    Refresh your browser to see the changes (you may need to clear cache).
+  </Step>
+</Steps>
+
+### Frontend Development
+
+For web component development:
+
+```bash
+cd webcomponents/tool/src/main/frontend
+
+# Install dependencies
+npm install
+
+# Run linter
+npm run lint
+
+# Build components
+npm run bundle
+```
+
+**Source**: `AGENTS.md:12-15`
+
+## Docker Quick Start
+
+Alternative: Run Sakai with Docker:
+
+```bash
+# Build Sakai Docker image from source
+cd docker
+docker build --build-arg GIT_CACHEBUST=$(date +%s) \
+  --build-arg release=master -t sakai \
+  -f ./Dockerfile.source .
+
+# Start MariaDB
+docker run -p 127.0.0.1:53306:3306 -d --name="sakai-mariadb" \
+  -e "MARIADB_ROOT_PASSWORD=sakairoot" \
+  mariadb:10 --lower-case-table-names=1
+
+# Run Sakai
+docker run --rm -p 8080:8080 --name sakai-tomcat \
+  --link sakai-mariadb sakai
+```
+
+**Source**: `docker/README.md:33-39`, `docker/README.md:93-98`, `docker/README.md:112`
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="OutOfMemoryError">
+    Increase heap memory in `setenv.sh`:
+    
+    ```bash
+    export JAVA_OPTS="-server -Xms4g -Xmx4g"
+    ```
+  </Accordion>
+  
+  <Accordion title="Database Connection Errors">
+    Verify database is running:
+    
+    ```bash
+    mysql -u sakai -p sakai
+    ```
+    
+    Check `sakai.properties` has correct credentials.
+  </Accordion>
+  
+  <Accordion title="Port 8080 Already in Use">
+    Either stop the conflicting service or change Tomcat's port in `server.xml`:
+    
+    ```xml
+    <Connector port="8090" protocol="HTTP/1.1" />
+    ```
+  </Accordion>
+  
+  <Accordion title="Build Failures">
+    Clean Maven cache and rebuild:
+    
+    ```bash
+    mvn clean install -U
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Guide" icon="diagram-project" href="/concepts/architecture">
+    Understand Sakai's layered architecture and design patterns
+  </Card>
+  
+  <Card title="Installation Guide" icon="server" href="/installation">
+    Deploy Sakai for production use
+  </Card>
+  
+  <Card title="Development Guide" icon="code" href="/development/setup">
+    Set up a complete development environment
+  </Card>
+  
+  <Card title="API Documentation" icon="book" href="/api/overview">
+    Explore Sakai's Java APIs and REST endpoints
+  </Card>
+</CardGroup>
