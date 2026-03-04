@@ -1,0 +1,181 @@
+{
+  "projectType": "saas",
+  "projectName": "Sakai LMS",
+  "projectDescription": "Open-source learning management system for education, teaching, research and collaboration",
+  "theme": "linden",
+  "primaryColor": "#0B1E47",
+  "lightColor": "#4A90E2",
+  "darkColor": "#0B1E47",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/kernel",
+              "concepts/tools",
+              "concepts/sites-and-workspaces"
+            ]
+          },
+          {
+            "group": "Key Features",
+            "pages": [
+              "features/assignments",
+              "features/gradebook",
+              "features/announcements",
+              "features/calendar",
+              "features/discussions",
+              "features/lesson-builder",
+              "features/assessments",
+              "features/content-management",
+              "features/lti-integration"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/deployment",
+              "admin/configuration",
+              "admin/database-setup",
+              "admin/user-management",
+              "admin/site-administration",
+              "admin/security"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/setup",
+              "development/building",
+              "development/tool-development",
+              "development/web-components",
+              "development/testing",
+              "development/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Kernel Services",
+            "pages": [
+              "api/kernel/user-directory",
+              "api/kernel/site-service",
+              "api/kernel/content-hosting",
+              "api/kernel/entity-manager",
+              "api/kernel/authz-service",
+              "api/kernel/session-manager"
+            ]
+          },
+          {
+            "group": "Tool APIs",
+            "pages": [
+              "api/tools/announcement",
+              "api/tools/assignment",
+              "api/tools/gradebook",
+              "api/tools/calendar",
+              "api/tools/forum",
+              "api/tools/samigo"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api/rest/endpoints",
+              "api/rest/authentication",
+              "api/rest/examples"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Installation",
+            "pages": [
+              "deployment/requirements",
+              "deployment/source-install",
+              "deployment/binary-install",
+              "deployment/docker",
+              "deployment/tomcat-configuration"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "deployment/sakai-properties",
+              "deployment/database-configuration",
+              "deployment/email-configuration",
+              "deployment/skin-customization"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "deployment/monitoring",
+              "deployment/backup-restore",
+              "deployment/upgrades",
+              "deployment/performance-tuning"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Assignments and grading",
+    "Assessments and quizzes (Samigo)",
+    "Calendar and scheduling",
+    "Announcements and messaging",
+    "Discussion forums",
+    "Lesson Builder for content creation",
+    "Gradebook management",
+    "Content and resource management",
+    "LTI tool integration",
+    "User and site administration",
+    "Profile and collaboration tools",
+    "RESTful web services API",
+    "Web components framework",
+    "Docker deployment support",
+    "Internationalization support"
+  ],
+  "publicApiSurface": [
+    "AnnouncementService - Manage announcements",
+    "AssignmentService - Create and grade assignments",
+    "CalendarService - Manage calendar events",
+    "SiteService - Site and workspace management",
+    "UserDirectoryService - User account management",
+    "ContentHostingService - File and content storage",
+    "AuthzGroupService - Authorization and permissions",
+    "GradebookService - Grade management",
+    "SessionManager - User session handling",
+    "EntityManager - Entity lifecycle management",
+    "REST API - /api/announcements",
+    "REST API - /api/calendar",
+    "REST API - /api/grades",
+    "REST API - /api/forums",
+    "LTI API - External tool integration",
+    "Entity Broker - RESTful entity access"
+  ]
+}
