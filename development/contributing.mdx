@@ -1,0 +1,486 @@
+---
+title: Contributing Guide
+description: Contribute code, bug fixes, and features to Sakai LMS
+---
+
+## Getting Started
+
+### Code of Conduct
+
+Sakai participates in the [Apereo Welcoming Policy](https://github.com/sakaiproject/sakai/blob/master/CODE_OF_CONDUCT.md).
+
+### Contributor License Agreement
+
+<Warning>
+  Before any code submission will be accepted, you **must** submit a Contributor License Agreement (CLA). This is a one-time process.
+</Warning>
+
+<Steps>
+  <Step title="Submit CLA">
+    Complete the CLA at: [https://www.apereo.org/licensing/agreements](https://www.apereo.org/licensing/agreements)
+  </Step>
+
+  <Step title="Check CLA Status">
+    Verify your CLA status at: [http://licensing.apereo.org/](http://licensing.apereo.org/)
+  </Step>
+</Steps>
+
+## JIRA Issue Tracking
+
+All bugs and features are tracked in [Sakai JIRA](https://jira.sakaiproject.org/).
+
+### Creating an Issue
+
+<Steps>
+  <Step title="Create JIRA account">
+    Sign up for a JIRA account to file and comment on issues.
+  </Step>
+
+  <Step title="Search for existing issues">
+    Check if the bug or feature already exists before creating a new issue.
+  </Step>
+
+  <Step title="Create new issue">
+    Provide:
+    - Clear title and description
+    - Steps to reproduce (for bugs)
+    - Expected vs actual behavior
+    - Sakai version affected
+    - Screenshots if applicable
+  </Step>
+
+  <Step title="Note the issue key">
+    You'll need the issue key (e.g., SAK-12345) for your branch and commits.
+  </Step>
+</Steps>
+
+<Info>
+  Include JIRA references in git branches and commit messages, but **not** in code comments. Use git history for this information instead.
+</Info>
+
+## Git Workflow
+
+### Initial Setup
+
+Set up your Git environment:
+
+<Steps>
+  <Step title="Configure Git">
+    ```bash
+    git config --global user.name "Your Name"
+    git config --global user.email "your.email@example.com"
+    ```
+  </Step>
+
+  <Step title="Fork the repository">
+    Fork [sakaiproject/sakai](https://github.com/sakaiproject/sakai) to your GitHub account.
+  </Step>
+
+  <Step title="Clone your fork">
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/sakai.git
+    cd sakai
+    ```
+  </Step>
+
+  <Step title="Add upstream remote">
+    ```bash
+    git remote add upstream https://github.com/sakaiproject/sakai.git
+    ```
+  </Step>
+</Steps>
+
+### Keep Fork Updated
+
+<Warning>
+  **Never work directly in your local `master` branch.** Always create feature branches.
+</Warning>
+
+Regularly sync your fork:
+
+```bash
+git checkout master
+git pull upstream master
+git push origin master
+```
+
+## Creating a Pull Request
+
+### Single Issue per Pull Request
+
+Most pull requests address a single issue:
+
+<Steps>
+  <Step title="Create branch">
+    Use the JIRA key as the branch name:
+
+    ```bash
+    git checkout -b SAK-12345
+    ```
+  </Step>
+
+  <Step title="Make changes">
+    Write your code, following the [Code Style Guidelines](#code-style-guidelines).
+  </Step>
+
+  <Step title="Add files">
+    ```bash
+    git add -u
+    ```
+  </Step>
+
+  <Step title="Commit with proper message">
+    Format: `<issue key> <component> <brief description>`
+
+    ```bash
+    git commit -m "SAK-12345 Assignments add option x when creating an assignment"
+    ```
+  </Step>
+
+  <Step title="Push to your fork">
+    ```bash
+    git push origin SAK-12345
+    ```
+  </Step>
+
+  <Step title="Create pull request">
+    Go to GitHub and create a pull request from your branch to `sakaiproject/sakai:master`.
+  </Step>
+
+  <Step title="Merge strategy">
+    When merged, maintainers will use **Squash and Merge**.
+  </Step>
+</Steps>
+
+### Multiple Issues per Pull Request
+
+Sometimes related issues are best addressed together:
+
+<Steps>
+  <Step title="Create branch">
+    ```bash
+    git checkout -b SAK-12345
+    ```
+  </Step>
+
+  <Step title="Make changes for first issue">
+    Write code for the first issue.
+  </Step>
+
+  <Step title="Commit first issue">
+    ```bash
+    git add -u
+    git commit -m "SAK-12345 Assignments add option x when creating an assignment"
+    ```
+  </Step>
+
+  <Step title="Make changes for second issue">
+    Write code for the second issue.
+  </Step>
+
+  <Step title="Commit second issue">
+    ```bash
+    git add -u
+    git commit -m "SAK-23456 Assignments add option y when creating an assignment"
+    ```
+  </Step>
+
+  <Step title="Push all commits">
+    ```bash
+    git push origin SAK-12345
+    ```
+  </Step>
+
+  <Step title="Create PR mentioning all issues">
+    Mention all issue keys (SAK-12345, SAK-23456) in the PR description.
+  </Step>
+
+  <Step title="Merge strategy">
+    When merged, maintainers will use **Rebase and Merge** to preserve individual commits.
+  </Step>
+</Steps>
+
+## Pull Request Reviews
+
+Your PR will be reviewed for:
+
+<AccordionGroup>
+  <Accordion title="Code Style">
+    - Matches existing code style in the file
+    - Follows Sakai coding standards
+    - Uses kebab-case for HTML class/id attributes
+  </Accordion>
+
+  <Accordion title="Indentation">
+    - Maintains consistent format (tabs/spaces)
+    - Aligns with surrounding code
+  </Accordion>
+
+  <Accordion title="Internationalization">
+    - All user-facing strings are externalized
+    - Supports multiple languages
+    - Uses resource bundles correctly
+  </Accordion>
+
+  <Accordion title="Accessibility">
+    - Follows WCAG 2.0 AA standards
+    - Semantic HTML used
+    - ARIA labels where appropriate
+    - Keyboard navigation works
+  </Accordion>
+
+  <Accordion title="Technical Approach">
+    - Sensible solution to the problem
+    - No obvious performance issues
+    - Uses appropriate Sakai APIs
+    - Follows architectural patterns
+  </Accordion>
+
+  <Accordion title="Minimal Changes">
+    - Only modified lines needed for fix/feature
+    - No bulk reformatting
+    - No unrelated changes
+  </Accordion>
+
+  <Accordion title="Single Issue">
+    - Addresses one issue (or closely related issues)
+    - Focused scope
+  </Accordion>
+
+  <Accordion title="Tests">
+    - Tests passing
+    - New tests added where appropriate
+    - E2E tests for UI flow changes
+  </Accordion>
+
+  <Accordion title="Commit Messages">
+    - Linked to JIRA issue
+    - Explains why, not just what
+    - Clear and concise
+  </Accordion>
+</AccordionGroup>
+
+## Responding to Feedback
+
+Update your PR based on review comments:
+
+<Steps>
+  <Step title="Switch to your branch">
+    ```bash
+    git checkout SAK-12345
+    ```
+  </Step>
+
+  <Step title="Make requested changes">
+    Update code based on feedback.
+  </Step>
+
+  <Step title="For single-issue PRs (Squash and Merge)">
+    Create a new commit:
+
+    ```bash
+    git add -u
+    git commit -m "Updated per review comments"
+    git push origin SAK-12345
+    ```
+  </Step>
+
+  <Step title="For multi-issue PRs (Rebase and Merge)">
+    Amend the appropriate commit:
+
+    ```bash
+    git add -u
+    git commit --amend -C HEAD
+    git push -f origin SAK-12345
+    ```
+
+    Or use interactive rebase:
+
+    ```bash
+    git rebase -i HEAD~3  # Adjust number as needed
+    git push -f origin SAK-12345
+    ```
+  </Step>
+
+  <Step title="Comment on the PR">
+    Notify reviewers that you've addressed their feedback.
+  </Step>
+</Steps>
+
+<Warning>
+  Only use `git push -f` (force push) to your own fork, never to the main repository.
+</Warning>
+
+## Code Style Guidelines
+
+### Java Style
+
+<CodeGroup>
+```java Correct
+List<String> names = new ArrayList<>();
+Map<String, Integer> counts = new HashMap<>();
+String userName = userService.getCurrentUser().getDisplayName();
+```
+
+```java Wrong
+// NEVER use var - will fail Checkstyle
+var names = new ArrayList<String>();
+var counts = new HashMap<String, Integer>();
+var userName = userService.getCurrentUser().getDisplayName();
+```
+</CodeGroup>
+
+### Commit Messages
+
+Format: `<issue key> <component> <brief description>`
+
+Examples:
+```
+SAK-12345 Assignments add option x when creating an assignment
+SAK-23456 Gradebook fix NPE when grade is null
+SAK-34567 Forums improve accessibility for screen readers
+```
+
+### JavaScript/Web Components
+
+- Use ES2022+ features
+- No jQuery in new code
+- Prefer modern DOM APIs
+- Use Lit components for UI
+- Keep state local and explicit
+- No global variables
+
+### HTML Attributes
+
+Use kebab-case for class and id attributes:
+
+```html
+<!-- Correct -->
+<div class="assignment-list" id="assignment-item-123">
+
+<!-- Avoid -->
+<div class="assignmentList" id="assignmentItem123">
+```
+
+### Accessibility
+
+- Use semantic HTML elements
+- Add ARIA labels for screen readers
+- Ensure keyboard navigation
+- Test with accessibility tools
+- Include `alt` text for images
+
+### Testing Requirements
+
+- Include unit tests for new code
+- Update existing tests for changes
+- Add Playwright E2E tests for UI flow changes
+- All tests must pass before merge
+
+## Security Issues
+
+Security issues are handled differently:
+
+<Steps>
+  <Step title="Request security access">
+    Email the contact on the [Security Policy page](https://confluence.sakaiproject.org/display/SECWG/Security+Policy) to get access to:
+    - Security mailing list
+    - Security JIRA work group
+  </Step>
+
+  <Step title="Create security JIRA">
+    Create a JIRA ticket with "security issue" indicated (dropdown option).
+  </Step>
+
+  <Step title="Submit fix">
+    Either:
+    - Request access to private [sakai-security repo](https://github.com/sakaiproject/sakai-security) and submit PR there
+    - Attach a diff to the JIRA ticket
+  </Step>
+
+  <Step title="Review process">
+    PRs and issues are reviewed at Security WG or Core Team meetings before releases.
+  </Step>
+</Steps>
+
+<Warning>
+  For high-priority security issues, email the security list directly.
+</Warning>
+
+## Communication Channels
+
+### Mailing Lists
+
+Join the Sakai developer mailing list:
+
+```bash
+# Subscribe
+Send email to: sakai-dev+subscribe@apereo.org
+```
+
+### Slack
+
+Join the Apereo Slack workspace:
+
+1. Sign up at [apereo.slack.com/signup](https://apereo.slack.com/signup)
+2. If your institution isn't listed, email `sakai-qa-planners@apereo.org` or `sakaicoordinator@apereo.org`
+
+### Wiki and Confluence
+
+Development documentation:
+- [Programmer's Cafe](https://confluence.sakaiproject.org/display/BOOT/Programmer%27s+Cafe)
+- [Git Setup](https://confluence.sakaiproject.org/display/SAKDEV/Git+Setup)
+
+## Release Process
+
+Sakai follows a regular release schedule:
+
+### Current Versions
+
+- **Sakai 25.2**: Current development (Q2 2026)
+- **Sakai 23.5**: Maintenance release (Q4 2025)
+- **Sakai 22.6**: Maintenance release (Q4 2025)
+
+### Version Support
+
+Community-supported versions receive:
+- Bug fixes
+- Security updates
+- Feature enhancements
+
+Legacy versions receive:
+- Security updates only
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Small PRs" icon="code-branch">
+    Keep pull requests focused and small for faster review.
+  </Card>
+  <Card title="Test Thoroughly" icon="vial">
+    Test your changes in multiple browsers and scenarios.
+  </Card>
+  <Card title="Document Changes" icon="file-text">
+    Update documentation when adding features.
+  </Card>
+  <Card title="Ask Questions" icon="question">
+    Use mailing lists and Slack when you need help.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Setup Guide" icon="gear" href="./setup">
+    Set up your development environment
+  </Card>
+  <Card title="Building Sakai" icon="hammer" href="./building">
+    Learn build commands and deployment
+  </Card>
+  <Card title="Tool Development" icon="wrench" href="./tool-development">
+    Start developing Sakai tools
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="./testing">
+    Write comprehensive tests
+  </Card>
+</CardGroup>

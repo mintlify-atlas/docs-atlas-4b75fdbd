@@ -1,0 +1,270 @@
+---
+title: REST API Authentication
+description: Authentication methods for the Sakai REST API
+---
+
+The Sakai REST API requires authentication for all endpoints. Authentication is handled through session-based cookies established via the login endpoint.
+
+## Authentication Flow
+
+<Steps>
+  <Step title="Login Request">
+    Send credentials to the `/api/login` endpoint to establish a session
+  </Step>
+  
+  <Step title="Session Cookie">
+    Receive a session cookie (`JSESSIONID`) in the response
+  </Step>
+  
+  <Step title="Authenticated Requests">
+    Include the session cookie in subsequent API requests
+  </Step>
+  
+  <Step title="Logout">
+    Call `/api/logout` to terminate the session when done
+  </Step>
+</Steps>
+
+## Login Endpoint
+
+<ParamField path="POST /api/login" type="endpoint">
+  Authenticate a user and establish a session
+</ParamField>
+
+### Request
+
+**Content-Type**: `application/x-www-form-urlencoded`
+
+**Parameters**:
+- `username` (required) - User's username or email
+- `password` (required) - User's password
+
+**Example**:
+
+```bash
+curl -X POST https://your-sakai-instance.edu/api/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=instructor@university.edu&password=your-password" \
+  -c cookies.txt
+```
+
+### Response
+
+**Success (200 OK)**:
+
+```json
+{
+  "status": "success",
+  "userId": "user-id-123",
+  "sessionId": "session-id-456",
+  "displayName": "John Instructor"
+}
+```
+
+The response includes a `Set-Cookie` header with the session cookie:
+
+```
+Set-Cookie: JSESSIONID=abc123...; Path=/; HttpOnly; Secure
+```
+
+**Failure (401 Unauthorized)**:
+
+```json
+{
+  "error": {
+    "status": "401",
+    "message": "Invalid credentials"
+  }
+}
+```
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/LoginController.java`
+
+## Session Management
+
+### Session Cookie
+
+The `JSESSIONID` cookie must be included in all authenticated requests:
+
+```bash
+curl https://your-sakai-instance.edu/api/users/me/announcements \
+  -b cookies.txt
+```
+
+### Session Timeout
+
+Sessions timeout after a period of inactivity (typically 30 minutes). The timeout is configured in `sakai.properties`:
+
+```properties
+# Session timeout in seconds (default: 1800 = 30 minutes)
+session.timeout=1800
+```
+
+<Warning>
+Always implement session refresh logic in long-running applications to avoid timeout errors.
+</Warning>
+
+### Session Validation
+
+All REST controllers extend `AbstractSakaiApiController`, which provides the `checkSakaiSession()` method to validate the current session:
+
+```java
+protected void checkSakaiSession() throws UserNotDefinedException {
+    String sessionId = sessionManager.getCurrentSessionUserId();
+    if (sessionId == null) {
+        throw new UserNotDefinedException("No valid session");
+    }
+}
+```
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/AbstractSakaiApiController.java`
+
+## Making Authenticated Requests
+
+### Using Session Cookie
+
+Once authenticated, include the session cookie in all requests:
+
+```bash
+# Get current user's announcements
+curl https://your-sakai-instance.edu/api/users/me/announcements \
+  -b cookies.txt
+```
+
+### JavaScript Fetch Example
+
+```javascript
+// Login
+const loginResponse = await fetch('https://your-sakai-instance.edu/api/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  },
+  body: 'username=user@example.com&password=secret',
+  credentials: 'include' // Important: include cookies
+});
+
+if (loginResponse.ok) {
+  // Make authenticated requests
+  const announcementsResponse = await fetch(
+    'https://your-sakai-instance.edu/api/users/me/announcements',
+    {
+      credentials: 'include' // Include session cookie
+    }
+  );
+  
+  const data = await announcementsResponse.json();
+  console.log(data);
+}
+```
+
+### Python Example
+
+```python
+import requests
+
+# Create a session to persist cookies
+session = requests.Session()
+
+# Login
+login_data = {
+    'username': 'user@example.com',
+    'password': 'secret'
+}
+login_response = session.post(
+    'https://your-sakai-instance.edu/api/login',
+    data=login_data
+)
+
+if login_response.ok:
+    # Make authenticated requests using the same session
+    announcements = session.get(
+        'https://your-sakai-instance.edu/api/users/me/announcements'
+    )
+    print(announcements.json())
+```
+
+## Logout
+
+<ParamField path="POST /api/logout" type="endpoint">
+  Terminate the current session
+</ParamField>
+
+### Request
+
+```bash
+curl -X POST https://your-sakai-instance.edu/api/logout \
+  -b cookies.txt
+```
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Logged out successfully"
+}
+```
+
+<Note>
+Always call the logout endpoint when your application is done to free server resources.
+</Note>
+
+## Security Best Practices
+
+### HTTPS Required
+
+<Warning>
+Always use HTTPS in production to protect credentials and session cookies from interception.
+</Warning>
+
+### Secure Cookies
+
+Configure secure cookies in production:
+
+```properties
+# In sakai.properties
+cookie.secure=true
+cookie.httponly=true
+cookie.samesite=strict
+```
+
+### CSRF Protection
+
+The REST API includes CSRF protection for state-changing operations. For POST, PUT, and DELETE requests, you may need to include a CSRF token.
+
+### Session Fixation Prevention
+
+Sakai regenerates session IDs after successful authentication to prevent session fixation attacks.
+
+## Error Handling
+
+### Common Authentication Errors
+
+<Accordion title="401 Unauthorized - Invalid Credentials">
+  The username or password is incorrect. Verify credentials and try again.
+</Accordion>
+
+<Accordion title="401 Unauthorized - No Session">
+  The session cookie is missing or expired. Re-authenticate via `/api/login`.
+</Accordion>
+
+<Accordion title="403 Forbidden - Insufficient Permissions">
+  The authenticated user doesn't have permission to access the requested resource.
+</Accordion>
+
+<Accordion title="Session Timeout">
+  If a session times out, you'll receive a 401 error. Implement automatic re-authentication or prompt the user to log in again.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Endpoints" icon="route" href="/api/rest/endpoints">
+    Explore available REST API endpoints
+  </Card>
+  
+  <Card title="Examples" icon="code" href="/api/rest/examples">
+    View complete REST API usage examples
+  </Card>
+</CardGroup>

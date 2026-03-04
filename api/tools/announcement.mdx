@@ -1,0 +1,399 @@
+---
+title: AnnouncementService API
+description: API reference for managing announcements and announcement channels in Sakai LMS
+---
+
+## Overview
+
+The `AnnouncementService` extends the `MessageService` and provides functionality for managing announcements and announcement channels in Sakai LMS. Announcements are used to broadcast information to site members.
+
+**Package**: `org.sakaiproject.announcement.api`
+
+**Source**: `/announcement/announcement-api/api/src/java/org/sakaiproject/announcement/api/AnnouncementService.java`
+
+## Constants
+
+### Application Identifiers
+
+```java
+public static final String APPLICATION_ID = "sakai:announcement";
+public static final String REF_TYPE_ANNOUNCEMENT = "announcement";
+public static final String REFERENCE_ROOT = "/announcement";
+```
+
+### Security Permissions
+
+```java
+public static final String SECURE_ANNC_READ = "annc.read";
+public static final String SECURE_ANNC_ADD = "annc.new";
+public static final String SECURE_ANNC_REMOVE_OWN = "annc.remove.own";
+public static final String SECURE_ANNC_REMOVE_ANY = "annc.remove.any";
+public static final String SECURE_ANNC_UPDATE_OWN = "annc.update.own";
+public static final String SECURE_ANNC_UPDATE_ANY = "annc.update.any";
+public static final String SECURE_ANNC_ALL_GROUPS = "annc.all.groups";
+```
+
+## Core Methods
+
+### Channel Management
+
+#### getAnnouncementChannel
+
+Retrieve a specific announcement channel.
+
+```java
+public AnnouncementChannel getAnnouncementChannel(String ref) 
+    throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="ref" type="String" required>
+  The channel reference
+</ParamField>
+
+**Returns**: The `AnnouncementChannel` with the specified reference
+
+**Throws**:
+- `IdUnusedException` - If the channel reference is not defined
+- `PermissionException` - If the user lacks permissions to access the channel
+
+**Example**:
+```java
+String channelRef = "/announcement/channel/" + siteId + "/main";
+AnnouncementChannel channel = announcementService.getAnnouncementChannel(channelRef);
+```
+
+#### addAnnouncementChannel
+
+Create a new announcement channel.
+
+```java
+public AnnouncementChannelEdit addAnnouncementChannel(String ref) 
+    throws IdUsedException, IdInvalidException, PermissionException;
+```
+
+<ParamField path="ref" type="String" required>
+  The channel reference for the new channel
+</ParamField>
+
+**Returns**: The newly created `AnnouncementChannelEdit` object
+
+**Throws**:
+- `IdUsedException` - If the channel reference is already in use
+- `IdInvalidException` - If the reference contains invalid characters
+- `PermissionException` - If the user lacks permission to add channels
+
+**Example**:
+```java
+String channelRef = "/announcement/channel/" + siteId + "/main";
+AnnouncementChannelEdit edit = announcementService.addAnnouncementChannel(channelRef);
+edit.getPropertiesEdit().addProperty(ResourceProperties.PROP_DISPLAY_NAME, "Announcements");
+announcementService.commitChannel(edit);
+```
+
+### Message Retrieval
+
+#### getMessages
+
+Retrieve messages from a channel with optional filtering and merging.
+
+```java
+public List<AnnouncementMessage> getMessages(
+    String channelReference, 
+    Filter filter, 
+    boolean ascending, 
+    boolean merged
+) throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="channelReference" type="String" required>
+  The channel's reference string
+</ParamField>
+
+<ParamField path="filter" type="Filter">
+  A filtering object to accept messages, or null for no filtering
+</ParamField>
+
+<ParamField path="ascending" type="boolean" required>
+  Order of messages - true for ascending, false for descending
+</ParamField>
+
+<ParamField path="merged" type="boolean" required>
+  Flag to include merged channel messages from other sites/channels
+</ParamField>
+
+**Returns**: List of `AnnouncementMessage` objects (may be empty)
+
+**Example**:
+```java
+String channelRef = "/announcement/channel/" + siteId + "/main";
+Filter filter = announcementService.getMaxAgeInDaysAndAmountFilter(30, 10);
+List<AnnouncementMessage> messages = announcementService.getMessages(
+    channelRef, filter, false, false
+);
+```
+
+#### getChannelMessages
+
+Retrieve messages with advanced filtering options including merged channels and synoptic views.
+
+```java
+public List<AnnouncementMessage> getChannelMessages(
+    String channelReference,
+    Filter filter,
+    boolean ascending,
+    String mergedChannelDelimitedList,
+    boolean allUserSites,
+    boolean isSynopticTool,
+    String siteId,
+    Integer maxAgeInDays
+) throws PermissionException;
+```
+
+<ParamField path="channelReference" type="String">
+  The hosting channel reference
+</ParamField>
+
+<ParamField path="filter" type="Filter">
+  A filtering object, or null if no filtering is desired
+</ParamField>
+
+<ParamField path="ascending" type="boolean" required>
+  Order of messages - true for ascending, false for descending
+</ParamField>
+
+<ParamField path="mergedChannelDelimitedList" type="String">
+  Delimited list of channel references to merge
+</ParamField>
+
+<ParamField path="allUserSites" type="boolean" required>
+  Set to true to retrieve messages from all user's sites
+</ParamField>
+
+<ParamField path="isSynopticTool" type="boolean" required>
+  Whether this is being called from a synoptic tool
+</ParamField>
+
+<ParamField path="siteId" type="String">
+  The site we want messages for
+</ParamField>
+
+<ParamField path="maxAgeInDays" type="Integer">
+  If filter is null, this will filter returned messages by age
+</ParamField>
+
+**Returns**: List of `AnnouncementMessage` objects
+
+**Example**:
+```java
+// Get announcements from all user sites for synoptic view
+List<AnnouncementMessage> messages = announcementService.getChannelMessages(
+    null, null, false, null, true, true, null, 30
+);
+```
+
+#### getVisibleMessagesOfTheDay
+
+Retrieve visible Message of the Day (MOTD) announcements.
+
+```java
+public List<AnnouncementMessage> getVisibleMessagesOfTheDay(
+    Time afterDate, 
+    int numberOfAnnouncements, 
+    boolean ascending
+);
+```
+
+<ParamField path="afterDate" type="Time">
+  Optional lower-bound date filter - messages before this are excluded
+</ParamField>
+
+<ParamField path="numberOfAnnouncements" type="int" required>
+  Maximum number of messages to return (values < 0 are treated as 0)
+</ParamField>
+
+<ParamField path="ascending" type="boolean" required>
+  Sort order - true for oldest-first, false for newest-first
+</ParamField>
+
+**Returns**: List of visible MOTD announcements
+
+**Example**:
+```java
+Time yesterday = timeService.newTime(System.currentTimeMillis() - 86400000);
+List<AnnouncementMessage> motd = announcementService.getVisibleMessagesOfTheDay(
+    yesterday, 5, false
+);
+```
+
+### Utility Methods
+
+#### getAnnouncementReference
+
+Get the announcement entity reference for a given context.
+
+```java
+public Reference getAnnouncementReference(String context);
+```
+
+<ParamField path="context" type="String" required>
+  The announcement context (site-id)
+</ParamField>
+
+**Returns**: Announcement entity reference
+
+#### getRssUrl
+
+Get the URL to access the announcement RSS feed.
+
+```java
+public String getRssUrl(Reference ref);
+```
+
+<ParamField path="ref" type="Reference" required>
+  The announcement entity reference
+</ParamField>
+
+**Returns**: URL for announcement RSS feed
+
+#### clearMessagesCache
+
+Clear the message cache for a specific channel.
+
+```java
+public void clearMessagesCache(String channelRef);
+```
+
+<ParamField path="channelRef" type="String" required>
+  The channel reference
+</ParamField>
+
+**Example**:
+```java
+String channelRef = "/announcement/channel/" + siteId + "/main";
+announcementService.clearMessagesCache(channelRef);
+```
+
+#### getMaxAgeInDaysAndAmountFilter
+
+Create a filter based on maximum age and message count.
+
+```java
+public Filter getMaxAgeInDaysAndAmountFilter(Integer maxAgeInDays, Integer amount);
+```
+
+<ParamField path="maxAgeInDays" type="Integer">
+  Maximum age of messages in days
+</ParamField>
+
+<ParamField path="amount" type="Integer">
+  Maximum number of messages to return
+</ParamField>
+
+**Returns**: A `Filter` object configured with the specified parameters
+
+## Events
+
+### Event Types
+
+```java
+public static final String EVENT_ANNC_UPDATE_TITLE = "annc.revise.title";
+public static final String EVENT_ANNC_UPDATE_ACCESS = "annc.revise.access";
+public static final String EVENT_ANNC_UPDATE_AVAILABILITY = "annc.revise.availability";
+public static final String EVENT_AVAILABLE_ANNC = "annc.available.announcement";
+```
+
+## Tool IDs
+
+```java
+public static final String MOTD_TOOL_ID = "sakai.motd";
+public static final String SAKAI_ANNOUNCEMENT_TOOL_ID = "sakai.announcements";
+public static final String SYNOPTIC_ANNOUNCEMENT_TOOL = "sakai.synoptic.announcement";
+```
+
+## Usage Examples
+
+### Complete Example: Creating and Posting an Announcement
+
+```java
+import org.sakaiproject.announcement.api.*;
+import org.sakaiproject.entity.api.ResourceProperties;
+import org.sakaiproject.time.api.Time;
+import org.sakaiproject.time.api.TimeService;
+
+public class AnnouncementExample {
+    
+    private AnnouncementService announcementService;
+    private TimeService timeService;
+    
+    public void createAnnouncement(String siteId, String title, String body) {
+        try {
+            // Get or create the channel
+            String channelRef = "/announcement/channel/" + siteId + "/main";
+            AnnouncementChannel channel;
+            
+            try {
+                channel = announcementService.getAnnouncementChannel(channelRef);
+            } catch (IdUnusedException e) {
+                // Channel doesn't exist, create it
+                AnnouncementChannelEdit channelEdit = 
+                    announcementService.addAnnouncementChannel(channelRef);
+                channelEdit.getPropertiesEdit().addProperty(
+                    ResourceProperties.PROP_DISPLAY_NAME, "Announcements"
+                );
+                announcementService.commitChannel(channelEdit);
+                channel = announcementService.getAnnouncementChannel(channelRef);
+            }
+            
+            // Create the announcement message
+            AnnouncementMessageEdit message = channel.addAnnouncementMessage();
+            message.setBody(body);
+            
+            AnnouncementMessageHeaderEdit header = message.getAnnouncementHeaderEdit();
+            header.setSubject(title);
+            header.setDraft(false);
+            
+            // Set release and retract dates
+            Time now = timeService.newTime();
+            Time oneWeekLater = timeService.newTime(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            header.setDate(now);
+            header.setRelease(now);
+            header.setRetract(oneWeekLater);
+            
+            // Commit the message
+            channel.commitMessage(message);
+            
+            System.out.println("Announcement created successfully!");
+            
+        } catch (Exception e) {
+            System.err.println("Error creating announcement: " + e.getMessage());
+        }
+    }
+    
+    public void listRecentAnnouncements(String siteId) {
+        try {
+            String channelRef = "/announcement/channel/" + siteId + "/main";
+            Filter filter = announcementService.getMaxAgeInDaysAndAmountFilter(30, 10);
+            
+            List<AnnouncementMessage> messages = announcementService.getMessages(
+                channelRef, filter, false, false
+            );
+            
+            for (AnnouncementMessage msg : messages) {
+                System.out.println("Title: " + msg.getAnnouncementHeader().getSubject());
+                System.out.println("Date: " + msg.getAnnouncementHeader().getDate());
+                System.out.println("Body: " + msg.getBody());
+                System.out.println("---");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error listing announcements: " + e.getMessage());
+        }
+    }
+}
+```
+
+## See Also
+
+- [MessageService API](/api/kernel/message) - Parent service interface
+- [Entity API](/api/kernel/entity) - Entity and reference handling
+- [Security API](/api/kernel/security) - Permission checking

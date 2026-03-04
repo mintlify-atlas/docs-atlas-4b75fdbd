@@ -1,0 +1,448 @@
+---
+title: EntityManager API
+description: Entity producer registration and reference management for Sakai LMS
+---
+
+The `EntityManager` is the API for managing EntityProducer services and entity references in Sakai.
+
+## Overview
+
+Package: `org.sakaiproject.entity.api`
+
+The EntityManager provides:
+
+- Registration of EntityProducer services
+- Entity reference creation and parsing
+- Entity lookup across all registered producers
+- URL generation for entities
+
+## Key Concepts
+
+- **EntityProducer**: A service that produces and manages entities (e.g., UserDirectoryService, SiteService, ContentHostingService)
+- **Reference**: A structured string identifying an entity (e.g., `/user/john-id`, `/site/site-id`, `/content/group/site-id/file.pdf`)
+- **Reference Root**: The prefix identifying which producer handles a reference (e.g., `/user`, `/site`, `/content`)
+
+## Core Methods
+
+### Entity Producer Management
+
+#### registerEntityProducer
+
+```java
+void registerEntityProducer(EntityProducer producer, String referenceRoot)
+```
+
+Register an EntityProducer service.
+
+<ParamField path="producer" type="EntityProducer" required>
+  The EntityProducer manager to register
+</ParamField>
+
+<ParamField path="referenceRoot" type="String" required>
+  The prefix of all entity references handled by this producer (e.g., "content" handles "/content/..." references)
+</ParamField>
+
+**Example:**
+```java
+// Typically done by services during initialization
+entityManager.registerEntityProducer(contentHostingService, "/content");
+entityManager.registerEntityProducer(userDirectoryService, "/user");
+entityManager.registerEntityProducer(siteService, "/site");
+```
+
+---
+
+#### getEntityProducers
+
+```java
+Collection<EntityProducer> getEntityProducers()
+```
+
+Access the list of registered EntityProducer managers.
+
+<ResponseField name="Collection<EntityProducer>" type="Collection<EntityProducer>">
+  Collection of all registered EntityProducer services
+</ResponseField>
+
+**Example:**
+```java
+Collection<EntityProducer> producers = entityManager.getEntityProducers();
+for (EntityProducer producer : producers) {
+    String label = producer.getLabel();
+    System.out.println("Producer: " + label);
+}
+```
+
+---
+
+#### getEntityProducer
+
+```java
+EntityProducer getEntityProducer(String reference, Reference target)
+```
+
+Get the EntityProducer that handles a given reference.
+
+<ParamField path="reference" type="String" required>
+  The entity reference string
+</ParamField>
+
+<ParamField path="target" type="Reference" required>
+  Parsed Reference object
+</ParamField>
+
+<ResponseField name="EntityProducer" type="EntityProducer">
+  The EntityProducer that handles this reference, or null if none found
+</ResponseField>
+
+---
+
+### Reference Management
+
+#### newReference
+
+```java
+Reference newReference(String reference)
+```
+
+Create a new Reference object from a reference string.
+
+<ParamField path="reference" type="String" required>
+  The reference string (e.g., "/user/john-id", "/site/site-id")
+</ParamField>
+
+<ResponseField name="Reference" type="Reference">
+  A new Reference object
+</ResponseField>
+
+**Example:**
+```java
+// Parse a reference string
+Reference ref = entityManager.newReference("/content/group/my-site/folder/file.pdf");
+
+String type = ref.getType();           // "content"
+String id = ref.getId();               // "/group/my-site/folder/file.pdf"
+String context = ref.getContext();     // "my-site"
+String container = ref.getContainer(); // "/group/my-site/folder/"
+```
+
+---
+
+#### newReference (Copy)
+
+```java
+Reference newReference(Reference reference)
+```
+
+Create a new Reference object as a copy of another.
+
+<ParamField path="reference" type="Reference" required>
+  The Reference object to copy
+</ParamField>
+
+<ResponseField name="Reference" type="Reference">
+  A new Reference object copy
+</ResponseField>
+
+---
+
+#### newReferenceList
+
+```java
+List<Reference> newReferenceList()
+```
+
+Create a new List designed to hold References.
+
+<ResponseField name="List<Reference>" type="List<Reference>">
+  A new empty list for References
+</ResponseField>
+
+---
+
+#### newReferenceList (Copy)
+
+```java
+List<Reference> newReferenceList(List<Reference> references)
+```
+
+Create a new List containing copies of the given References.
+
+<ParamField path="references" type="List<Reference>" required>
+  List to copy
+</ParamField>
+
+<ResponseField name="List<Reference>" type="List<Reference>">
+  A new list containing copies
+</ResponseField>
+
+---
+
+### Reference Validation
+
+#### checkReference
+
+```java
+boolean checkReference(String reference)
+```
+
+Check if a reference is valid.
+
+<ParamField path="reference" type="String" required>
+  The reference string to validate
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if the reference is valid, false otherwise
+</ResponseField>
+
+**Example:**
+```java
+String ref = "/user/" + userId;
+if (entityManager.checkReference(ref)) {
+    // Reference is valid
+    Reference reference = entityManager.newReference(ref);
+}
+```
+
+---
+
+### Entity Access
+
+#### getEntity
+
+```java
+Optional<Entity> getEntity(String reference)
+```
+
+Get an entity by its reference.
+
+<ParamField path="reference" type="String" required>
+  The entity reference string
+</ParamField>
+
+<ResponseField name="Optional<Entity>" type="Optional<Entity>">
+  Optional containing the Entity if found
+</ResponseField>
+
+**Example:**
+```java
+Optional<Entity> entity = entityManager.getEntity("/user/john-id");
+entity.ifPresent(e -> {
+    String url = e.getUrl();
+    String id = e.getId();
+    ResourceProperties props = e.getProperties();
+});
+```
+
+---
+
+#### getTool
+
+```java
+Optional<String> getTool(String reference)
+```
+
+Get the tool ID associated with a reference.
+
+<ParamField path="reference" type="String" required>
+  The entity reference string
+</ParamField>
+
+<ResponseField name="Optional<String>" type="Optional<String>">
+  Optional containing the tool ID if applicable
+</ResponseField>
+
+---
+
+### URL Generation
+
+#### getUrl
+
+```java
+Optional<String> getUrl(String reference, Entity.UrlType urlType)
+```
+
+Get a URL for accessing an entity.
+
+<ParamField path="reference" type="String" required>
+  The entity reference string
+</ParamField>
+
+<ParamField path="urlType" type="Entity.UrlType" required>
+  The type of URL to generate (PORTAL, DIRECT, etc.)
+</ParamField>
+
+<ResponseField name="Optional<String>" type="Optional<String>">
+  Optional containing the URL if available
+</ResponseField>
+
+---
+
+## Reference Object
+
+The `Reference` interface provides parsed information about an entity reference:
+
+```java
+Reference ref = entityManager.newReference("/content/group/site-id/folder/file.pdf");
+
+// Type Information
+String type = ref.getType();              // "content"
+String subType = ref.getSubType();        // May indicate resource vs collection
+
+// Identity
+String id = ref.getId();                  // Full resource ID
+String reference = ref.getReference();    // Original reference string
+
+// Context
+String context = ref.getContext();        // "site-id"
+String container = ref.getContainer();    // Parent collection/folder
+
+// Access
+Entity entity = ref.getEntity();          // Get the actual entity
+EntityProducer producer = ref.getEntityProducer(); // Get handling service
+```
+
+## Reference Formats
+
+Different services use different reference formats:
+
+### User References
+
+```
+/user/{user-id}
+```
+
+Example: `/user/abc123-def-456`
+
+### Site References
+
+```
+/site/{site-id}
+/site/{site-id}/page/{page-id}
+/site/{site-id}/tool/{tool-id}
+/site/{site-id}/group/{group-id}
+```
+
+Examples:
+- `/site/biology-101`
+- `/site/biology-101/page/home-page-id`
+- `/site/biology-101/group/section-a`
+
+### Content References
+
+```
+/content{resource-id}
+```
+
+Examples:
+- `/content/group/biology-101/lectures/week1.pdf`
+- `/content/user/john-id/my-files/notes.txt`
+- `/content/attachment/abc-123-def/document.pdf`
+
+### Authorization Group References
+
+```
+/realm/site/{site-id}
+/realm/site/{site-id}/group/{group-id}
+```
+
+Examples:
+- `/realm/site/biology-101`
+- `/realm/site/biology-101/group/section-a`
+
+## Common Use Cases
+
+### Getting an Entity from a Reference
+
+```java
+// Option 1: Using EntityManager
+String reference = "/user/" + userId;
+Optional<Entity> entity = entityManager.getEntity(reference);
+entity.ifPresent(e -> {
+    // Work with entity
+});
+
+// Option 2: Parse reference and use appropriate service
+Reference ref = entityManager.newReference(reference);
+if ("user".equals(ref.getType())) {
+    String userId = ref.getId().substring(1); // Remove leading '/'
+    User user = userDirectoryService.getUser(userId);
+} else if ("site".equals(ref.getType())) {
+    String siteId = ref.getContext();
+    Site site = siteService.getSite(siteId);
+}
+```
+
+### Validating and Processing References
+
+```java
+public void processEntityReference(String refString) {
+    if (!entityManager.checkReference(refString)) {
+        throw new IllegalArgumentException("Invalid reference: " + refString);
+    }
+    
+    Reference ref = entityManager.newReference(refString);
+    String type = ref.getType();
+    
+    switch (type) {
+        case "user":
+            processUserReference(ref);
+            break;
+        case "site":
+            processSiteReference(ref);
+            break;
+        case "content":
+            processContentReference(ref);
+            break;
+        default:
+            log.warn("Unknown reference type: " + type);
+    }
+}
+```
+
+### Building Reference Strings
+
+```java
+// User reference
+String userRef = userDirectoryService.userReference(userId);
+// Result: "/user/abc-123"
+
+// Site reference
+String siteRef = siteService.siteReference(siteId);
+// Result: "/site/biology-101"
+
+// Content reference
+String contentRef = contentResource.getReference();
+// Result: "/content/group/biology-101/file.pdf"
+
+// Authorization group reference
+String realmRef = authzGroupService.authzGroupReference(realmId);
+// Result: "/realm/site/biology-101"
+```
+
+## EntityProducer Interface
+
+Services that implement `EntityProducer` can:
+
+- Parse entity references
+- Provide entity access by reference
+- Generate URLs for entities
+- Handle entity archiving and importing
+- Support entity notifications
+
+Common EntityProducers in Sakai:
+
+- `UserDirectoryService` - Manages `/user/*` references
+- `SiteService` - Manages `/site/*` references
+- `ContentHostingService` - Manages `/content/*` references
+- `AuthzGroupService` - Manages `/realm/*` references
+- `AssignmentService` - Manages `/assignment/*` references
+- `GradebookService` - Manages `/gradebook/*` references
+
+## See Also
+
+- [UserDirectoryService API](/api/kernel/user-directory) - User entity management
+- [SiteService API](/api/kernel/site-service) - Site entity management
+- [ContentHostingService API](/api/kernel/content-hosting) - Content entity management
+- [AuthzGroupService API](/api/kernel/authz-service) - Authorization realm management

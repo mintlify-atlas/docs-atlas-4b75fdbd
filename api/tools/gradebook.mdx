@@ -1,0 +1,859 @@
+---
+title: GradingService API
+description: API reference for managing gradebook items, grades, and categories in Sakai LMS
+---
+
+## Overview
+
+The `GradingService` is the main API for the Gradebook tool in Sakai LMS. It provides methods for managing gradebook items, recording grades, calculating course grades, and managing categories.
+
+**Package**: `org.sakaiproject.grading.api`
+
+**Source**: `/gradebookng/api/src/main/java/org/sakaiproject/grading/api/GradingService.java`
+
+## Constants
+
+```java
+public static final MathContext MATH_CONTEXT = new MathContext(10, RoundingMode.HALF_DOWN);
+public static final String[] INVALID_CHARS_AT_START_OF_GB_ITEM_NAME = { "#", "*", "[" };
+```
+
+## Permission Checking
+
+### currentUserHasGradeAllPerm
+
+Check if the current user has permission to grade all students.
+
+```java
+public boolean currentUserHasGradeAllPerm(String gradebookUid);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID (usually the site ID)
+</ParamField>
+
+**Returns**: `true` if the user has gradebook.gradeAll permission
+
+### currentUserHasGradingPerm
+
+Check if the current user has any form of grading privileges.
+
+```java
+public boolean currentUserHasGradingPerm(String gradebookUid);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+**Returns**: `true` if the user has grading privileges (grade all, grade section, etc.)
+
+### currentUserHasEditPerm
+
+Check if the current user can edit gradebook settings and items.
+
+```java
+public boolean currentUserHasEditPerm(String gradebookUid);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+**Returns**: `true` if the user has gradebook.editAssignments permission
+
+### currentUserHasViewOwnGradesPerm
+
+Check if the current user can view their own grades.
+
+```java
+public boolean currentUserHasViewOwnGradesPerm(String gradebookUid);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+**Returns**: `true` if the user has gradebook.viewOwnGrades permission
+
+## Gradebook Management
+
+### getGradebook
+
+Retrieve a gradebook by its UID, creating it if it doesn't exist.
+
+```java
+public Gradebook getGradebook(String uid, String siteId);
+```
+
+<ParamField path="uid" type="String" required>
+  The unique identifier of the gradebook
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID used for context when creating new gradebooks
+</ParamField>
+
+**Returns**: The existing or newly created `Gradebook`, or null if it cannot be found/created
+
+**Example**:
+```java
+Gradebook gradebook = gradingService.getGradebook(siteId, siteId);
+if (gradebook != null) {
+    System.out.println("Gradebook: " + gradebook.getName());
+    System.out.println("Grade type: " + gradebook.getGradeType());
+}
+```
+
+### addGradebook
+
+Create a new gradebook.
+
+```java
+public Gradebook addGradebook(String uid, String name);
+```
+
+<ParamField path="uid" type="String" required>
+  The unique identifier for the gradebook
+</ParamField>
+
+<ParamField path="name" type="String" required>
+  The display name for the gradebook
+</ParamField>
+
+**Returns**: The newly created `Gradebook`
+
+### deleteGradebook
+
+Delete a gradebook and all associated data.
+
+```java
+public void deleteGradebook(String uid);
+```
+
+<ParamField path="uid" type="String" required>
+  The gradebook UID to delete
+</ParamField>
+
+### getGradebookInformation
+
+Get information about a gradebook.
+
+```java
+public GradebookInformation getGradebookInformation(String gradebookUid, String siteId);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: A `GradebookInformation` object containing gradebook settings
+
+**Example**:
+```java
+GradebookInformation info = gradingService.getGradebookInformation(siteId, siteId);
+System.out.println("Grade entry type: " + info.getGradeType());
+System.out.println("Categories enabled: " + info.getCategoriesEnabled());
+```
+
+## Assignment/Item Management
+
+### getAssignments
+
+Get all assignments in a gradebook.
+
+```java
+public List<Assignment> getAssignments(
+    String gradebookUid, 
+    String siteId, 
+    SortType sortBy
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="sortBy" type="SortType" required>
+  The sort order for assignments
+</ParamField>
+
+**Returns**: List of `Assignment` objects
+
+**Example**:
+```java
+List<Assignment> assignments = gradingService.getAssignments(
+    siteId, 
+    siteId, 
+    SortType.SORT_BY_DATE
+);
+for (Assignment a : assignments) {
+    System.out.println(a.getName() + ": " + a.getPoints() + " points");
+}
+```
+
+### getAssignment
+
+Get a specific assignment by ID.
+
+```java
+public Assignment getAssignment(
+    String gradebookUid, 
+    String siteId, 
+    Long assignmentId
+) throws AssessmentNotFoundException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="Long" required>
+  The assignment ID
+</ParamField>
+
+**Returns**: The `Assignment` object
+
+**Throws**: `AssessmentNotFoundException` if the assignment doesn't exist
+
+### addAssignment
+
+Add a new gradebook item.
+
+```java
+public Long addAssignment(
+    String gradebookUid, 
+    String siteId, 
+    Assignment assignmentDefinition
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentDefinition" type="Assignment" required>
+  The assignment definition with properties set
+</ParamField>
+
+**Returns**: The ID of the newly created assignment
+
+**Example**:
+```java
+Assignment assignment = new Assignment();
+assignment.setName("Midterm Exam");
+assignment.setPoints(100.0);
+assignment.setDueDate(new Date());
+assignment.setCounted(true);
+assignment.setReleased(true);
+
+Long assignmentId = gradingService.addAssignment(siteId, siteId, assignment);
+System.out.println("Created assignment with ID: " + assignmentId);
+```
+
+### updateAssignment
+
+Update an existing gradebook item.
+
+```java
+public void updateAssignment(
+    String gradebookUid, 
+    String siteId, 
+    Long assignmentId, 
+    Assignment assignmentDefinition
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="Long" required>
+  The ID of the assignment to update
+</ParamField>
+
+<ParamField path="assignmentDefinition" type="Assignment" required>
+  The updated assignment properties
+</ParamField>
+
+### removeAssignment
+
+Remove a gradebook item.
+
+```java
+public void removeAssignment(Long assignmentId) 
+    throws StaleObjectModificationException;
+```
+
+<ParamField path="assignmentId" type="Long" required>
+  The assignment ID to remove
+</ParamField>
+
+**Throws**: `StaleObjectModificationException` if there's a concurrent modification
+
+## Grade Management
+
+### getGradeDefinitionForStudentForItem
+
+Get a student's grade for a specific item.
+
+```java
+public GradeDefinition getGradeDefinitionForStudentForItem(
+    String gradebookUid,
+    String siteId,
+    Long assignmentId,
+    String studentUid
+) throws AssessmentNotFoundException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="Long" required>
+  The assignment ID
+</ParamField>
+
+<ParamField path="studentUid" type="String" required>
+  The student's user ID
+</ParamField>
+
+**Returns**: A `GradeDefinition` object, or null if no grade exists
+
+**Example**:
+```java
+GradeDefinition grade = gradingService.getGradeDefinitionForStudentForItem(
+    siteId, siteId, assignmentId, studentId
+);
+if (grade != null) {
+    System.out.println("Grade: " + grade.getGrade());
+    System.out.println("Grader: " + grade.getGraderUid());
+}
+```
+
+### saveGradeAndCommentForStudent
+
+Save a grade and comment for a student.
+
+```java
+public void saveGradeAndCommentForStudent(
+    String gradebookUid,
+    String siteId,
+    Long assignmentId,
+    String studentId,
+    String grade,
+    String comment
+) throws InvalidGradeException, AssessmentNotFoundException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="Long" required>
+  The assignment ID
+</ParamField>
+
+<ParamField path="studentId" type="String" required>
+  The student's user ID
+</ParamField>
+
+<ParamField path="grade" type="String" required>
+  The grade (must match gradebook's grade entry type)
+</ParamField>
+
+<ParamField path="comment" type="String">
+  Optional comment
+</ParamField>
+
+**Throws**:
+- `InvalidGradeException` - If the grade format is invalid
+- `AssessmentNotFoundException` - If the assignment doesn't exist
+
+**Example**:
+```java
+try {
+    gradingService.saveGradeAndCommentForStudent(
+        siteId, siteId, assignmentId, studentId, 
+        "85", "Good work!"
+    );
+} catch (InvalidGradeException e) {
+    System.err.println("Invalid grade format");
+}
+```
+
+### saveGradesAndComments
+
+Save grades and comments for multiple students.
+
+```java
+public void saveGradesAndComments(
+    String gradebookUid,
+    String siteId,
+    Long assignmentId,
+    List<GradeDefinition> gradeDefList
+) throws InvalidGradeException, AssessmentNotFoundException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="Long" required>
+  The assignment ID
+</ParamField>
+
+<ParamField path="gradeDefList" type="List<GradeDefinition>" required>
+  List of grade definitions with student IDs and grades
+</ParamField>
+
+**Example**:
+```java
+List<GradeDefinition> grades = new ArrayList<>();
+for (String studentId : studentIds) {
+    GradeDefinition gd = new GradeDefinition();
+    gd.setStudentUid(studentId);
+    gd.setGrade("85");
+    gd.setGradeComment("Good work");
+    grades.add(gd);
+}
+gradingService.saveGradesAndComments(siteId, siteId, assignmentId, grades);
+```
+
+### isGradeValid
+
+Check if a grade string is valid for the gradebook.
+
+```java
+public boolean isGradeValid(String gradebookUid, String grade);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="grade" type="String" required>
+  The grade to validate
+</ParamField>
+
+**Returns**: `true` if the grade is valid given the gradebook's grade entry type
+
+### getGradeEntryType
+
+Get the grade entry type for a gradebook.
+
+```java
+public Integer getGradeEntryType(String gradebookUid);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+**Returns**: Integer constant representing grade entry type (points, %, letter)
+
+## Category Management
+
+### getCategoryDefinitions
+
+Get all categories for a gradebook.
+
+```java
+public List<CategoryDefinition> getCategoryDefinitions(
+    String gradebookUid, 
+    String siteId
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: List of `CategoryDefinition` objects (empty list if no categories)
+
+**Example**:
+```java
+List<CategoryDefinition> categories = gradingService.getCategoryDefinitions(siteId, siteId);
+for (CategoryDefinition cat : categories) {
+    System.out.println(cat.getName() + ": " + cat.getWeight() + "%");
+}
+```
+
+### getCategoryDefinition
+
+Get a specific category by ID.
+
+```java
+public Optional<CategoryDefinition> getCategoryDefinition(
+    Long categoryId, 
+    String siteId
+);
+```
+
+<ParamField path="categoryId" type="Long" required>
+  The category ID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: Optional containing the `CategoryDefinition` if found
+
+### updateCategory
+
+Update a category.
+
+```java
+public void updateCategory(CategoryDefinition category);
+```
+
+<ParamField path="category" type="CategoryDefinition" required>
+  The updated category definition
+</ParamField>
+
+### removeCategory
+
+Remove a category.
+
+```java
+public void removeCategory(Long categoryId) 
+    throws StaleObjectModificationException;
+```
+
+<ParamField path="categoryId" type="Long" required>
+  The category ID to remove
+</ParamField>
+
+### calculateCategoryScore
+
+Calculate a student's score for a category.
+
+```java
+public Optional<CategoryScoreData> calculateCategoryScore(
+    Long gradebookId,
+    String studentUuid,
+    Long categoryId,
+    boolean includeNonReleasedItems,
+    Integer categoryType,
+    Boolean equalWeightAssignments
+);
+```
+
+<ParamField path="gradebookId" type="Long" required>
+  The gradebook ID
+</ParamField>
+
+<ParamField path="studentUuid" type="String" required>
+  The student's UUID
+</ParamField>
+
+<ParamField path="categoryId" type="Long" required>
+  The category ID
+</ParamField>
+
+<ParamField path="includeNonReleasedItems" type="boolean" required>
+  Whether to include non-released items
+</ParamField>
+
+<ParamField path="categoryType" type="Integer" required>
+  The category type
+</ParamField>
+
+<ParamField path="equalWeightAssignments" type="Boolean" required>
+  Whether assignments are equally weighted
+</ParamField>
+
+**Returns**: Optional containing percentage and dropped items, or empty if no calculations made
+
+## Course Grade
+
+### getCourseGradeForStudent
+
+Get the course grade for a student.
+
+```java
+public CourseGradeTransferBean getCourseGradeForStudent(
+    String gradebookUid,
+    String siteId,
+    String userUuid
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="userUuid" type="String" required>
+  The student's UUID
+</ParamField>
+
+**Returns**: The `CourseGradeTransferBean` for the student
+
+**Example**:
+```java
+CourseGradeTransferBean courseGrade = gradingService.getCourseGradeForStudent(
+    siteId, siteId, studentId
+);
+System.out.println("Course grade: " + courseGrade.getDisplayGrade());
+System.out.println("Points earned: " + courseGrade.getPointsEarned());
+```
+
+### updateCourseGradeForStudent
+
+Set a course grade override for a student.
+
+```java
+public void updateCourseGradeForStudent(
+    String gradebookUid,
+    String siteId,
+    String studentUuid,
+    String grade,
+    String gradeScale
+);
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="studentUuid" type="String" required>
+  The student's UUID
+</ParamField>
+
+<ParamField path="grade" type="String" required>
+  The new course grade
+</ParamField>
+
+<ParamField path="gradeScale" type="String" required>
+  The grade scale to use
+</ParamField>
+
+## External Assessment Integration
+
+### addExternalAssessment
+
+Add an external assessment (e.g., from Assignments or Tests & Quizzes) to the gradebook.
+
+```java
+public void addExternalAssessment(
+    String gradebookUid,
+    String siteId,
+    String externalId,
+    String externalUrl,
+    String title,
+    Double points,
+    Date dueDate,
+    String externalServiceDescription,
+    String externalData,
+    Boolean ungraded,
+    Long categoryId,
+    String gradableReference
+) throws ConflictingAssignmentNameException, ConflictingExternalIdException, 
+         AssignmentHasIllegalPointsException, InvalidCategoryException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="externalId" type="String" required>
+  The external ID from the source tool
+</ParamField>
+
+<ParamField path="externalUrl" type="String">
+  URL to the external assessment
+</ParamField>
+
+<ParamField path="title" type="String" required>
+  The assessment title
+</ParamField>
+
+<ParamField path="points" type="Double" required>
+  Maximum points for the assessment
+</ParamField>
+
+<ParamField path="dueDate" type="Date">
+  The due date
+</ParamField>
+
+<ParamField path="externalServiceDescription" type="String" required>
+  Description of the external service (e.g., "Assignments")
+</ParamField>
+
+<ParamField path="externalData" type="String">
+  Additional data the external service wishes to store
+</ParamField>
+
+<ParamField path="ungraded" type="Boolean">
+  Whether this is an ungraded item
+</ParamField>
+
+<ParamField path="categoryId" type="Long">
+  The category ID (null for no category)
+</ParamField>
+
+<ParamField path="gradableReference" type="String">
+  Reference to the gradable object
+</ParamField>
+
+**Example**:
+```java
+gradingService.addExternalAssessment(
+    siteId, siteId,
+    "assignment-123",
+    "/direct/assignment/123",
+    "Essay Assignment",
+    100.0,
+    new Date(),
+    "Assignments",
+    null,
+    false,
+    null,
+    "/assignment/a/" + siteId + "/123"
+);
+```
+
+### updateExternalAssessmentScore
+
+Update a score for an external assessment.
+
+```java
+public void updateExternalAssessmentScore(
+    String gradebookUid,
+    String siteId,
+    String externalId,
+    String studentUid,
+    String points
+) throws AssessmentNotFoundException;
+```
+
+<ParamField path="gradebookUid" type="String" required>
+  The gradebook UID
+</ParamField>
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="externalId" type="String" required>
+  The external ID of the assessment
+</ParamField>
+
+<ParamField path="studentUid" type="String" required>
+  The student's user ID
+</ParamField>
+
+<ParamField path="points" type="String">
+  The points earned, or null to remove the score
+</ParamField>
+
+## Complete Example
+
+```java
+import org.sakaiproject.grading.api.*;
+import java.util.*;
+
+public class GradebookExample {
+    
+    private GradingService gradingService;
+    
+    public void manageGradebook(String siteId) {
+        // Get or create gradebook
+        Gradebook gradebook = gradingService.getGradebook(siteId, siteId);
+        
+        // Create a category
+        CategoryDefinition category = new CategoryDefinition();
+        category.setName("Exams");
+        category.setWeight(50.0);
+        
+        // Add a gradebook item
+        Assignment assignment = new Assignment();
+        assignment.setName("Midterm Exam");
+        assignment.setPoints(100.0);
+        assignment.setDueDate(new Date());
+        assignment.setCounted(true);
+        assignment.setReleased(true);
+        
+        Long assignmentId = gradingService.addAssignment(siteId, siteId, assignment);
+        
+        // Grade students
+        Map<String, String> studentGrades = new HashMap<>();
+        studentGrades.put("student1", "85");
+        studentGrades.put("student2", "92");
+        
+        for (Map.Entry<String, String> entry : studentGrades.entrySet()) {
+            try {
+                gradingService.saveGradeAndCommentForStudent(
+                    siteId, siteId, assignmentId,
+                    entry.getKey(),
+                    entry.getValue(),
+                    "Good work!"
+                );
+            } catch (InvalidGradeException e) {
+                System.err.println("Invalid grade for " + entry.getKey());
+            } catch (AssessmentNotFoundException e) {
+                System.err.println("Assignment not found");
+            }
+        }
+        
+        // Get course grade
+        CourseGradeTransferBean courseGrade = 
+            gradingService.getCourseGradeForStudent(siteId, siteId, "student1");
+        System.out.println("Course grade: " + courseGrade.getDisplayGrade());
+    }
+}
+```
+
+## See Also
+
+- [Assignment API](/api/tools/assignment) - Assignment integration
+- [Samigo API](/api/tools/samigo) - Tests & Quizzes integration

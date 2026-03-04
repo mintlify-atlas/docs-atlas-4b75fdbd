@@ -1,0 +1,490 @@
+---
+title: API Authentication
+description: Authentication methods and session management for Sakai APIs
+---
+
+Sakai's APIs use session-based authentication to secure access to learning management resources. This guide covers authentication mechanisms, session management, and security best practices.
+
+## Authentication Overview
+
+Sakai uses a multi-layered authentication system:
+
+1. **AuthenticationManager** - Validates user credentials
+2. **SessionManager** - Creates and manages user sessions
+3. **UsageSessionService** - Tracks session usage and events
+4. **Session Cookies** - Maintains session state across requests
+
+## Login Endpoint
+
+The primary authentication endpoint is `/api/login`, which accepts username and password credentials.
+
+### Login Request
+
+**Endpoint:** `POST /api/login`
+
+**Request Body:**
+```json
+{
+  "username": "student1",
+  "password": "secretpassword"
+}
+```
+
+**Response (Success):**
+```json
+"ABC123-SESSION-ID-XYZ789"
+```
+
+**Response (Error):**
+```json
+"username and password are required"
+```
+
+### Login Implementation
+
+The login controller performs the following steps:
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/LoginController.java:62
+@PostMapping("/login")
+public ResponseEntity<String> login(
+    LoginRestBean loginBean,
+    HttpServletRequest request,
+    HttpServletResponse response
+) throws AuthenticationException {
+
+    String username = loginBean.getUsername();
+    String password = loginBean.getPassword();
+
+    // Validate input
+    if (StringUtils.isAnyBlank(username, password)) {
+        return ResponseEntity.badRequest()
+            .body("username and password are required");
+    }
+
+    String ipAddress = request.getRemoteAddr();
+
+    // Create authentication evidence
+    Evidence e = new IdPwEvidence(username, password, ipAddress);
+    
+    // Authenticate user
+    Authentication a = authenticationManager.authenticate(e);
+
+    // Start new session
+    Session s = sessionManager.startSession();
+
+    if (s == null) {
+        log.warn("/api/login failed to establish session");
+        return new ResponseEntity<>(
+            "Unable to establish session",
+            HttpStatus.INTERNAL_SERVER_ERROR
+        );
+    }
+
+    // Set current session
+    sessionManager.setCurrentSession(s);
+
+    // Log usage session
+    usageSessionService.login(
+        a.getUid(),
+        username,
+        ipAddress,
+        "/api/login",
+        UsageSessionService.EVENT_LOGIN_WS
+    );
+
+    // Create session cookie
+    Cookie c = new Cookie("JSESSIONID", s.getId() + "." + suffix);
+    c.setPath("/");
+    c.setMaxAge(-1);
+    if (request.isSecure()) {
+        c.setSecure(true);
+    }
+    response.addCookie(c);
+
+    return ResponseEntity.ok(s.getId());
+}
+```
+
+## Session Management
+
+<Note>
+Sakai sessions are managed by the `SessionManager` service, which provides session creation, retrieval, and lifecycle management.
+</Note>
+
+### Session Interface
+
+The `Session` interface provides access to session data:
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/tool/api/Session.java:32
+public interface Session {
+    // Session identification
+    String getId();
+    
+    // User information
+    String getUserId();
+    String getUserEid();
+    
+    // Session lifecycle
+    long getCreationTime();
+    long getLastAccessedTime();
+    int getMaxInactiveInterval();
+    void invalidate();
+    void clear();
+    
+    // Session attributes
+    Object getAttribute(String name);
+    Enumeration<String> getAttributeNames();
+    void setAttribute(String name, Object value);
+    void removeAttribute(String name);
+    
+    // Tool sessions
+    ToolSession getToolSession(String placementId);
+    ContextSession getContextSession(String contextId);
+}
+```
+
+### SessionManager Interface
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/tool/api/SessionManager.java:34
+public interface SessionManager {
+    // Session creation
+    Session startSession();
+    Session startSession(String id);
+    
+    // Session retrieval
+    Session getSession(String sessionId);
+    List<Session> getSessions();
+    
+    // Current session management
+    Session getCurrentSession();
+    String getCurrentSessionUserId();
+    void setCurrentSession(Session s);
+    
+    // Tool session management
+    ToolSession getCurrentToolSession();
+    void setCurrentToolSession(ToolSession s);
+    
+    // Session monitoring
+    int getActiveUserCount(int secs);
+    
+    // Session ID generation
+    String makeSessionId(HttpServletRequest req, Principal principal);
+}
+```
+
+## Session Validation
+
+All API controllers should validate the session before processing requests:
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/AbstractSakaiApiController.java:56
+Session checkSakaiSession() {
+    try {
+        Session session = sessionManager.getCurrentSession();
+        
+        // Verify session has authenticated user
+        if (StringUtils.isBlank(session.getUserId())) {
+            log.error("Sakai user session is invalid");
+            throw new MissingSessionException();
+        }
+        
+        return session;
+    } catch (IllegalStateException e) {
+        log.error("Could not retrieve the sakai session");
+        throw new MissingSessionException(e.getCause());
+    }
+}
+```
+
+**Usage in Controllers:**
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/SitesController.java:62
+@GetMapping(value = "/users/{userId}/sites")
+public Map<String, List<Map<String, Object>>> getSites(
+    @PathVariable String userId,
+    @RequestParam Optional<Boolean> pinned
+) {
+    // Validate session before processing
+    checkSakaiSession();
+    
+    // Process request...
+}
+```
+
+## Authentication Manager
+
+The `AuthenticationManager` validates user credentials:
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/user/api/AuthenticationManager.java:29
+public interface AuthenticationManager {
+    /**
+     * Attempt to authenticate a user by the given evidence.
+     * Success produces the authenticated user id.
+     * Failure throws an exception.
+     * 
+     * @param e The collected evidence to authenticate.
+     * @return The authentication information if authenticated.
+     * @throws AuthenticationException if the evidence is not 
+     *         understood or not valid.
+     */
+    Authentication authenticate(Evidence e) 
+        throws AuthenticationException;
+}
+```
+
+### Evidence Types
+
+**Username/Password Evidence:**
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/util/IdPwEvidence.java
+Evidence e = new IdPwEvidence(username, password, ipAddress);
+```
+
+**External/Trusted Evidence:**
+
+For SSO and trusted authentication sources:
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/util/ExternalTrustedEvidence.java
+Evidence e = new ExternalTrustedEvidence(...);
+```
+
+**Basic Auth Evidence:**
+
+```java
+// kernel/api/src/main/java/org/sakaiproject/util/BasicAuth.java
+Evidence e = new BasicAuth(...);
+```
+
+## Session Cookies
+
+<Note>
+Sakai uses the `JSESSIONID` cookie (configurable) to maintain session state. The cookie name and domain can be configured via system properties.
+</Note>
+
+### Cookie Configuration
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/LoginController.java:97
+String cookieName = "JSESSIONID";
+
+// Retrieve configured cookie name
+if (System.getProperty(RequestFilter.SAKAI_COOKIE_PROP) != null) {
+    cookieName = System.getProperty(RequestFilter.SAKAI_COOKIE_PROP);
+}
+
+// Compute session cookie suffix for load balancing
+String suffix = System.getProperty(RequestFilter.SAKAI_SERVERID);
+if (StringUtils.isEmpty(suffix)) {
+    suffix = "sakai";
+}
+
+// Create cookie
+Cookie c = new Cookie(cookieName, s.getId() + "." + suffix);
+c.setPath("/");
+c.setMaxAge(-1);  // Session cookie
+
+// Configure domain if specified
+if (System.getProperty(RequestFilter.SAKAI_COOKIE_DOMAIN) != null) {
+    c.setDomain(System.getProperty(RequestFilter.SAKAI_COOKIE_DOMAIN));
+}
+
+// Secure cookie for HTTPS
+if (request.isSecure()) {
+    c.setSecure(true);
+}
+
+response.addCookie(c);
+```
+
+### System Properties
+
+- `sakai.cookieName` - Cookie name (default: `JSESSIONID`)
+- `sakai.cookieDomain` - Cookie domain
+- `sakai.serverId` - Server ID for load balancing
+
+## Request Filtering
+
+The `RequestFilter` processes all requests and manages session context:
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/WebAppConfiguration.java:41
+servletContext.addFilter("sakai.request", RequestFilter.class)
+    .addMappingForUrlPatterns(
+        EnumSet.of(
+            DispatcherType.REQUEST,
+            DispatcherType.FORWARD,
+            DispatcherType.INCLUDE
+        ),
+        true,
+        "/*"
+    );
+```
+
+The filter:
+- Extracts session ID from cookies or headers
+- Sets the current session in `SessionManager`
+- Cleans up session after request processing
+
+## Client Authentication Flow
+
+### Step 1: Login
+
+```bash
+curl -X POST https://sakai.example.edu/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "student1",
+    "password": "password123"
+  }' \
+  -c cookies.txt
+```
+
+**Response:**
+```
+ABC123-SESSION-ID-XYZ789
+```
+
+The session cookie is saved to `cookies.txt`.
+
+### Step 2: Make Authenticated Requests
+
+```bash
+curl https://sakai.example.edu/api/user/roles \
+  -b cookies.txt
+```
+
+**Response:**
+```json
+{
+  "isSuperUser": false
+}
+```
+
+### Step 3: Access User's Sites
+
+```bash
+curl https://sakai.example.edu/api/users/student1/sites \
+  -b cookies.txt
+```
+
+**Response:**
+```json
+{
+  "terms": [...],
+  "sites": [
+    {
+      "siteId": "site123",
+      "title": "Introduction to Computer Science",
+      "url": "/portal/site/site123",
+      "pinned": true,
+      "tools": [...]
+    }
+  ]
+}
+```
+
+## Security Best Practices
+
+<Note>
+**Security Recommendations:**
+- Always use HTTPS in production
+- Set secure cookie flags for HTTPS connections
+- Implement proper session timeout policies
+- Log authentication attempts for audit purposes
+- Validate session on every API request
+- Never expose session IDs in URLs
+</Note>
+
+### Session Timeout
+
+Configure session timeout via:
+
+```java
+session.setMaxInactiveInterval(3600); // 1 hour in seconds
+```
+
+### Session Cleanup
+
+Invalidate sessions when no longer needed:
+
+```java
+Session session = sessionManager.getCurrentSession();
+session.invalidate();
+```
+
+### IP Address Tracking
+
+Authentication includes IP address logging:
+
+```java
+String ipAddress = request.getRemoteAddr();
+Evidence e = new IdPwEvidence(username, password, ipAddress);
+```
+
+## Usage Session Tracking
+
+The `UsageSessionService` tracks session activity:
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/LoginController.java:92
+usageSessionService.login(
+    a.getUid(),              // User ID
+    username,                // Username
+    ipAddress,               // IP Address
+    "/api/login",            // Login path
+    UsageSessionService.EVENT_LOGIN_WS  // Event type
+);
+```
+
+This enables:
+- User activity monitoring
+- Presence tracking
+- Event logging
+- Session analytics
+
+## Troubleshooting
+
+### Invalid Session Errors
+
+**Error:** `MissingSessionException`
+
+**Causes:**
+- Session expired
+- Invalid session cookie
+- User not authenticated
+
+**Solution:** Re-authenticate via `/api/login`
+
+### Authentication Failures
+
+**Error:** `AuthenticationException`
+
+**Causes:**
+- Invalid credentials
+- Account locked
+- Authentication service unavailable
+
+**Solution:** Verify credentials and account status
+
+### Cookie Issues
+
+**Problem:** Session cookie not persisting
+
+**Checks:**
+- Verify cookie domain matches request domain
+- Check HTTPS/secure flag settings
+- Verify cookie path is `/`
+- Check browser cookie settings
+
+## Next Steps
+
+- [API Overview](/api/overview) - Complete API architecture overview
+- [Entity Broker](/api/entitybroker) - Learn about Entity Broker APIs
+- [WebAPI Reference](/api/webapi) - Explore available endpoints

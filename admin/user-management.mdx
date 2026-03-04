@@ -1,0 +1,652 @@
+---
+title: User Management
+description: Manage users, roles, permissions, and authentication in Sakai LMS
+---
+
+# User Management
+
+Sakai provides comprehensive user management capabilities for creating, editing, and organizing users, as well as managing roles and permissions.
+
+## User Administration Tool
+
+The Users tool is available in the Administration Workspace and provides full user management functionality.
+
+### Accessing User Management
+
+1. Log in as an administrator
+2. Navigate to **Administration Workspace**
+3. Click on **Users** tool
+
+## Creating Users
+
+There are multiple ways to create user accounts in Sakai.
+
+### Creating Single Users
+
+<Steps>
+
+<Step title="Access Users Tool">
+In the Administration Workspace, click **Users** → **New User**
+</Step>
+
+<Step title="Enter User Details">
+Complete the user creation form:
+
+- **User ID (EID)**: Unique login identifier (cannot be changed later)
+- **First Name**: User's first name
+- **Last Name**: User's last name
+- **Email**: Valid email address
+- **User Type**: Select from configured types (e.g., registered, guest, affiliate)
+- **Password**: Initial password (or auto-generate)
+
+</Step>
+
+<Step title="Set User Properties">
+Optional fields:
+
+- **Phone Number**
+- **Department**
+- **Position**
+- **School**
+- **Additional Properties**: Custom fields if configured
+
+</Step>
+
+<Step title="Save User">
+Click **Save** to create the user account.
+</Step>
+
+</Steps>
+
+<Info>
+User IDs (EIDs) are permanent identifiers. Choose a consistent naming convention (e.g., email addresses, student IDs).
+</Info>
+
+### Bulk User Import
+
+Import multiple users from a CSV file.
+
+<Steps>
+
+<Step title="Prepare CSV File">
+
+Create a CSV file with the following columns:
+
+```csv
+eid,firstname,lastname,email,password,type
+jsmith,John,Smith,jsmith@example.edu,changeme,registered
+mjones,Mary,Jones,mjones@example.edu,changeme,registered
+bdoe,Bob,Doe,bdoe@example.edu,changeme,student
+```
+
+Required columns:
+- `eid` - User ID (unique)
+- `firstname` - First name
+- `lastname` - Last name
+- `email` - Email address
+- `password` - Initial password
+- `type` - User type
+
+</Step>
+
+<Step title="Import Users">
+
+1. In Users tool, click **Import from File**
+2. Upload your CSV file
+3. Map CSV columns to user fields
+4. Review import preview
+5. Click **Import** to create users
+
+</Step>
+
+<Step title="Review Results">
+
+The import summary shows:
+- Successfully created users
+- Errors or duplicates
+- Import log
+
+</Step>
+
+</Steps>
+
+### Programmatic User Creation
+
+Users can be created via:
+
+- **Web Services API**: SOAP/REST endpoints for integration
+- **LDAP/Active Directory Sync**: Automatic user provisioning
+- **CAS/SAML Authentication**: Just-in-time user creation
+
+## Editing Users
+
+### Modify User Information
+
+<Steps>
+
+<Step title="Find User">
+
+In the Users tool:
+1. Search by EID, name, or email
+2. Click on the user to view details
+
+</Step>
+
+<Step title="Edit Details">
+
+Click **Edit** to modify:
+- Name (first, last)
+- Email address
+- Phone number
+- User type
+- Custom properties
+
+<Warning>
+User ID (EID) cannot be changed after creation.
+</Warning>
+
+</Step>
+
+<Step title="Reset Password">
+
+To reset a user's password:
+1. Click **Edit**
+2. Enter new password
+3. Optionally force password change on next login
+4. Click **Save**
+
+</Step>
+
+</Steps>
+
+## User Types
+
+Sakai supports different user types to categorize users and control permissions.
+
+### Default User Types
+
+- **registered**: Standard registered users
+- **guest**: Guest users with limited access
+- **affiliate**: External affiliates
+- **staff**: Staff members
+- **student**: Students
+- **faculty**: Faculty/instructors
+
+### Configuring User Types
+
+Add custom user types in `sakai.properties`:
+
+```properties
+# Define available user types
+user.types=registered,guest,student,faculty,staff,affiliate,ta
+
+# Limit account creation by type
+user.registrationTypes=registered
+user.nonAdminTypes=guest
+```
+
+## Password Policies
+
+Enforce password strength and complexity requirements.
+
+### Enabling Password Policy
+
+Configure in `sakai.properties`:
+
+```properties
+# Enable password policy
+user.password.policy=true
+
+# Password policy provider
+user.password.policy.provider.name=org.sakaiproject.user.api.PasswordPolicyProvider
+
+# Entropy settings (password strength)
+user.password.minimum.entropy=16
+user.password.medium.entropy=32
+user.password.high.entropy=48
+
+# Maximum characters from user EID allowed in password
+user.password.maximum.sequence.length=3
+```
+
+### Password Policy Rules
+
+With password policy enabled, passwords must:
+- Meet minimum entropy requirements
+- Not contain long sequences from the user's EID
+- Not be common dictionary words
+- Meet configurable length requirements
+
+## Roles and Permissions
+
+Sakai uses a flexible role-based permission system.
+
+### Understanding Roles
+
+**System Roles**: Global roles that apply across the entire system
+- `admin` - System administrator
+- `maintain` - Site maintainer
+
+**Site Roles**: Roles specific to individual sites
+- `Instructor` - Course instructor
+- `Student` - Course student
+- `Teaching Assistant` - TA with elevated permissions
+- `Observer` - Read-only access
+
+### Permission Structure
+
+Permissions in Sakai follow the pattern:
+
+```
+tool.function
+```
+
+Examples:
+- `site.upd` - Update site
+- `content.new` - Create content
+- `gradebook.gradeAll` - Grade all students
+- `annc.all.groups` - Post announcements to all groups
+
+### Managing Site Roles
+
+<Steps>
+
+<Step title="Access Site Info">
+
+In a site:
+1. Go to **Site Info**
+2. Click **Manage Access**
+
+</Step>
+
+<Step title="Add Participants">
+
+1. Click **Add Participants**
+2. Search for users by EID or email
+3. Select users to add
+4. Assign role (Instructor, Student, etc.)
+5. Click **Continue** → **Finish**
+
+</Step>
+
+<Step title="Modify Roles">
+
+To change a user's role:
+1. Find user in participant list
+2. Select new role from dropdown
+3. Click **Update**
+
+</Step>
+
+<Step title="Remove Users">
+
+1. Check boxes next to users
+2. Click **Remove**
+3. Confirm removal
+
+</Step>
+
+</Steps>
+
+### Customizing Roles and Permissions
+
+Administrators can customize role permissions.
+
+<Steps>
+
+<Step title="Access Realms Tool">
+
+In Administration Workspace:
+1. Click **Realms**
+2. Search for realm (e.g., `!site.template.course`)
+
+</Step>
+
+<Step title="Edit Role Permissions">
+
+1. Select a role (e.g., Student)
+2. Check/uncheck permissions
+3. Click **Save**
+
+</Step>
+
+<Step title="Create Custom Roles">
+
+1. In realm editor, click **New Role**
+2. Name the role (e.g., "Course Designer")
+3. Select permissions
+4. Click **Save**
+
+</Step>
+
+</Steps>
+
+<Warning>
+Changing template realms affects all new sites. Existing sites must be updated separately.
+</Warning>
+
+## User Authentication
+
+Sakai supports multiple authentication methods.
+
+### Internal Authentication
+
+Default Sakai authentication using database-stored credentials.
+
+```properties
+# Enable internal login
+top.login=true
+container.login=false
+```
+
+### LDAP/Active Directory
+
+Integrate with institutional directory services.
+
+#### LDAP Configuration
+
+Add to `sakai.properties`:
+
+```properties
+# LDAP provider
+provider.directory=org.sakaiproject.user.api.UserDirectoryProvider
+
+# LDAP server
+ldap.url=ldaps://ldap.example.edu:636
+ldap.basedn=ou=people,dc=example,dc=edu
+
+# Bind credentials
+ldap.bind.dn=cn=sakai,ou=services,dc=example,dc=edu
+ldap.bind.password=LDAP_PASSWORD
+
+# User attributes
+ldap.attribute.userid=uid
+ldap.attribute.firstname=givenName
+ldap.attribute.lastname=sn
+ldap.attribute.email=mail
+
+# Search filter
+ldap.filter=(objectClass=person)
+```
+
+### CAS (Single Sign-On)
+
+Integrate with Central Authentication Service.
+
+```properties
+# Enable CAS
+container.login=true
+top.login=false
+
+# CAS server URL
+cas.server.url=https://cas.example.edu/cas
+cas.service.url=https://sakai.example.edu/portal
+
+# Enable extra login for local accounts
+xlogin.enabled=true
+xlogin.text=Local Account Login
+```
+
+### SAML Authentication
+
+Integrate with SAML identity providers.
+
+```properties
+# SAML configuration
+saml.entityId=https://sakai.example.edu/saml
+saml.idp.entityId=https://idp.example.edu/saml
+saml.idp.metadata.url=https://idp.example.edu/metadata
+
+# Attribute mapping
+saml.attribute.userid=urn:oid:0.9.2342.19200300.100.1.1
+saml.attribute.email=urn:oid:0.9.2342.19200300.100.1.3
+```
+
+## User Status Management
+
+### Disabling Users
+
+Temporarily disable user accounts without deletion.
+
+<Steps>
+
+<Step title="Edit User">
+Find and edit the user in the Users tool.
+</Step>
+
+<Step title="Set Disabled Status">
+Check the **Disabled** checkbox.
+</Step>
+
+<Step title="Configure Redirect">
+
+Set a custom disabled page URL in `sakai.properties`:
+
+```properties
+disabledSiteUrl=https://sakai.example.edu/portal/disabled
+```
+
+</Step>
+
+</Steps>
+
+Disabled users:
+- Cannot log in
+- Are redirected to the disabled page
+- Retain all data and site memberships
+- Can be re-enabled at any time
+
+### Deleting Users
+
+<Warning>
+Deleting users is permanent and removes all associated data. Consider disabling instead.
+</Warning>
+
+To delete a user:
+1. Find user in Users tool
+2. Click **Remove**
+3. Confirm deletion
+
+Deleted user data:
+- User account removed from database
+- Site memberships removed
+- Authored content may remain (orphaned)
+- Gradebook entries may remain
+
+## Account Validation
+
+Require email validation for new accounts.
+
+### Enabling Account Validation
+
+```properties
+# Enable account validation
+accountvalidator.enabled=true
+
+# Validation token expiry (hours)
+accountvalidator.token.expiry=24
+
+# Email template
+accountvalidator.email.template=/path/to/template.html
+```
+
+### reCAPTCHA Integration
+
+Prevent automated account creation.
+
+```properties
+# Enable reCAPTCHA
+user.recaptcha.enabled=true
+user.recaptcha.public-key=YOUR_RECAPTCHA_PUBLIC_KEY
+user.recaptcha.private-key=YOUR_RECAPTCHA_PRIVATE_KEY
+```
+
+## Duplicate Email Handling
+
+Control whether multiple users can share email addresses.
+
+```properties
+# Allow duplicate emails
+user.email.allowduplicates=true
+
+# Disallow duplicate emails (recommended)
+user.email.allowduplicates=false
+```
+
+<Info>
+Disallowing duplicate emails improves account security and simplifies password reset workflows.
+</Info>
+
+## User Preferences
+
+Users can configure personal preferences.
+
+### Available Preferences
+
+- **Notifications**: Email notification settings
+- **Timezone**: Personal timezone
+- **Language**: Interface language
+- **Privacy**: Profile visibility
+- **Editor**: Rich text editor preferences
+
+### Configuring Available Preferences
+
+```properties
+# Show all preference pages
+preference.pages=prefs_noti_title,prefs_timezone_title,prefs_lang_title,prefs_privacy_title,prefs_editor_title
+```
+
+## User Search and Reporting
+
+### Search Users
+
+In the Users tool:
+- Search by EID, name, email, or type
+- Filter by user type
+- Sort by various fields
+- Export results to CSV
+
+### User Reports
+
+Generate reports on:
+- Total active users
+- Users by type
+- Recently created accounts
+- Inactive users
+- Login statistics
+
+## Web Services API
+
+Manage users programmatically via SOAP/REST APIs.
+
+### Enabling Web Services
+
+```properties
+# Enable web services
+webservices.allowlogin=true
+
+# Allow specific IPs
+webservices.allow=127.0.0.1,10.0.0.0/8
+```
+
+### API Examples
+
+**Create User** (SOAP):
+
+```xml
+<soapenv:Envelope>
+  <soapenv:Body>
+    <ns:addNewUser>
+      <ns:sessionid>SESSION_ID</ns:sessionid>
+      <ns:eid>jsmith</ns:eid>
+      <ns:firstname>John</ns:firstname>
+      <ns:lastname>Smith</ns:lastname>
+      <ns:email>jsmith@example.edu</ns:email>
+      <ns:type>registered</ns:type>
+      <ns:password>changeme</ns:password>
+    </ns:addNewUser>
+  </soapenv:Body>
+</soapenv:Envelope>
+```
+
+**Get User** (REST):
+
+```bash
+curl -u admin:admin \
+  https://sakai.example.edu/direct/user/jsmith.json
+```
+
+## Best Practices
+
+### User ID Conventions
+
+- Use institutional identifiers (student ID, employee ID)
+- Alternatively, use email addresses as EIDs
+- Maintain consistency across systems
+- Document your naming convention
+
+### Password Management
+
+- Enforce strong password policies
+- Implement password expiration if required
+- Provide self-service password reset
+- Never store passwords in plain text
+- Educate users on password security
+
+### Role Assignment
+
+- Use appropriate roles for each user type
+- Avoid granting admin access unnecessarily
+- Regularly audit role assignments
+- Document custom role definitions
+
+### Account Lifecycle
+
+- Automate user provisioning when possible
+- Implement regular account reviews
+- Disable inactive accounts
+- Archive data before deletion
+- Maintain audit logs
+
+## Troubleshooting
+
+### Users Cannot Log In
+
+**Check:**
+- Account is not disabled
+- Password is correct (reset if needed)
+- Authentication provider is working
+- No firewall/network issues
+
+### Duplicate Users Created
+
+**Solution:**
+- Search for duplicates by email
+- Merge accounts if possible
+- Disable duplicate account
+- Update site memberships to correct account
+
+### Permission Denied Errors
+
+**Check:**
+- User has appropriate site role
+- Role has required permissions
+- Realm configuration is correct
+- No conflicts in permission hierarchy
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Site Administration" icon="sitemap" href="/admin/site-administration">
+    Manage sites and workspaces
+  </Card>
+  <Card title="Security" icon="shield" href="/admin/security">
+    Configure authentication and security
+  </Card>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Advanced system configuration
+  </Card>
+  <Card title="Database Setup" icon="database" href="/admin/database-setup">
+    Database administration
+  </Card>
+</CardGroup>

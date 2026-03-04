@@ -1,0 +1,428 @@
+---
+title: Tomcat Configuration
+description: Configure Apache Tomcat for running Sakai LMS
+---
+
+Proper Tomcat configuration is essential for running Sakai. This guide covers the required configuration files and settings.
+
+<Warning>
+Sakai will **not** work with default Tomcat settings. You must configure Tomcat according to this guide.
+</Warning>
+
+## Configuration Overview
+
+Key configuration files:
+
+- `bin/setenv.sh` - JVM memory and options
+- `conf/server.xml` - Tomcat server configuration
+- `sakai/sakai.properties` - Sakai application settings
+
+## JVM Configuration (setenv.sh)
+
+Create `$TOMCAT_HOME/bin/setenv.sh` with the following settings:
+
+### Basic Configuration
+
+```bash
+export UMASK='0022'
+
+CATALINA_OPTS="-server \
+               -Djava.awt.headless=true \
+               -XX:+UseCompressedOops \
+               -XX:+AlwaysPreTouch \
+               -XX:+DisableExplicitGC \
+               -Djava.net.preferIPv4Stack=true"
+```
+
+### Memory Settings
+
+<Warning>
+Memory settings are critical for Sakai performance. Insufficient memory will cause OutOfMemoryErrors.
+</Warning>
+
+```bash
+# Heap size (adjust based on available RAM)
+CATALINA_OPTS="$CATALINA_OPTS -Xms2g -Xmx2g"
+
+# New generation size
+CATALINA_OPTS="$CATALINA_OPTS -XX:NewSize=500m -XX:MaxNewSize=500m"
+```
+
+Recommended memory by server size:
+- **Small** (< 100 users): `-Xms2g -Xmx2g`
+- **Medium** (100-500 users): `-Xms4g -Xmx4g`
+- **Large** (500+ users): `-Xms8g -Xmx8g` or higher
+
+### Garbage Collector
+
+```bash
+# G1GC (recommended)
+CATALINA_OPTS="$CATALINA_OPTS -XX:+UseG1GC"
+```
+
+Alternative collectors:
+```bash
+# ZGC (Java 17+)
+#CATALINA_OPTS="$CATALINA_OPTS -XX:+UseZGC"
+
+# Shenandoah GC
+#CATALINA_OPTS="$CATALINA_OPTS -XX:+UseShenandoahGC"
+```
+
+### Java Module Options (Java 11+)
+
+<Warning>
+Java 11+ requires additional module opens for Sakai to function properly.
+</Warning>
+
+```bash
+JAVA_OPTS="$JAVA_OPTS \
+    --add-opens=java.base/jdk.internal.access=ALL-UNNAMED \
+    --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED \
+    --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+    --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+    --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED \
+    --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED \
+    --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED \
+    --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED \
+    --add-opens=java.base/java.io=ALL-UNNAMED \
+    --add-opens=java.base/java.nio=ALL-UNNAMED \
+    --add-opens=java.base/java.net=ALL-UNNAMED \
+    --add-opens=java.base/java.util=ALL-UNNAMED \
+    --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+    --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED \
+    --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+    --add-opens=java.base/java.lang=ALL-UNNAMED \
+    --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+    --add-opens=java.base/java.math=ALL-UNNAMED \
+    --add-opens=java.sql/java.sql=ALL-UNNAMED \
+    --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+    --add-opens=java.base/java.time=ALL-UNNAMED \
+    --add-opens=java.base/java.text=ALL-UNNAMED \
+    --add-opens=java.management/sun.management=ALL-UNNAMED \
+    --add-opens=java.desktop/java.awt.font=ALL-UNNAMED \
+    --add-opens=java.desktop/javax.swing.tree=ALL-UNNAMED"
+```
+
+### Additional Options
+
+```bash
+# Jasper configuration
+CATALINA_OPTS="$CATALINA_OPTS -Dorg.apache.jasper.compiler.Parser.STRICT_QUOTE_ESCAPING=false"
+
+# HTTP User Agent
+CATALINA_OPTS="$CATALINA_OPTS -Dhttp.agent=Sakai"
+
+# Timezone (adjust to your location)
+CATALINA_OPTS="$CATALINA_OPTS -Duser.timezone=US/Eastern"
+
+# Cookie name
+CATALINA_OPTS="$CATALINA_OPTS -Dsakai.cookieName=SAKAIID"
+```
+
+### Demo Mode (Optional)
+
+```bash
+# Enable demo mode
+CATALINA_OPTS="$CATALINA_OPTS -Dsakai.demo=true"
+```
+
+### JMX Monitoring (Optional)
+
+```bash
+# Enable JMX for monitoring
+CATALINA_OPTS="$CATALINA_OPTS -Djava.rmi.server.hostname=your.server.ip \
+                          -Dcom.sun.management.jmxremote.port=9999 \
+                          -Dcom.sun.management.jmxremote.ssl=false \
+                          -Dcom.sun.management.jmxremote.authenticate=false"
+```
+
+## Server Configuration (server.xml)
+
+Update `$TOMCAT_HOME/conf/server.xml`:
+
+### Server Element
+
+```xml
+<Server port="8005" shutdown="SHUTDOWN" address="0.0.0.0">
+  <Listener className="org.apache.catalina.core.AprLifecycleListener" SSLEngine="on" />
+  <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener" />
+  <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
+  <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener" />
+```
+
+### HTTP Connector
+
+```xml
+<Connector port="8080" 
+           protocol="HTTP/1.1" 
+           connectionTimeout="20000" 
+           redirectPort="8443" 
+           URIEncoding="UTF-8" 
+           address="0.0.0.0"/>
+```
+
+<Warning>
+`URIEncoding="UTF-8"` is required for proper character encoding in Sakai.
+</Warning>
+
+### Host Configuration
+
+```xml
+<Host name="localhost" 
+      startStopThreads="4" 
+      appBase="webapps" 
+      unpackWARs="true" 
+      autoDeploy="true">
+  
+  <!-- Access logging -->
+  <Valve className="org.apache.catalina.valves.AccessLogValve" 
+         directory="logs"
+         prefix="localhost_access_log" 
+         suffix=".txt"
+         pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+</Host>
+```
+
+### SSL/HTTPS Configuration (Optional)
+
+For HTTPS, add an SSL connector:
+
+```xml
+<Connector port="8443" 
+           protocol="org.apache.coyote.http11.Http11NioProtocol"
+           maxThreads="150" 
+           SSLEnabled="true"
+           URIEncoding="UTF-8">
+  <SSLHostConfig>
+    <Certificate certificateKeystoreFile="conf/keystore.jks"
+                 certificateKeystorePassword="changeit" 
+                 type="RSA" />
+  </SSLHostConfig>
+</Connector>
+```
+
+## Sakai Configuration (sakai.properties)
+
+Create `$TOMCAT_HOME/sakai/sakai.properties`:
+
+### Database Configuration
+
+```properties
+# MySQL/MariaDB
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+
+hibernate.dialect=org.hibernate.dialect.MySQL5InnoDBDialect
+validationQuery@javax.sql.BaseDataSource=select 1 from DUAL
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+# Database credentials
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=your_password
+```
+
+### Server Configuration
+
+```properties
+# Server URL (change to your domain)
+serverUrl=http://localhost:8080
+serverName=localhost
+
+# Server ID
+serverId=localhost
+```
+
+### Email Configuration
+
+```properties
+# SMTP settings
+smtp.enabled=true
+smtp.server=smtp.example.com
+smtp.port=25
+smtp.from=sakai@example.com
+
+# Authentication (if required)
+smtp.user=username
+smtp.password=password
+```
+
+### Upload Limits
+
+```properties
+# Maximum upload size (in MB)
+content.upload.max=100
+content.upload.ceiling=1024
+```
+
+### Session Timeout
+
+```properties
+# Session timeout in minutes
+inactiveInterval@org.sakaiproject.tool.api.SessionManager=30
+```
+
+### Search Configuration
+
+```properties
+# Enable search
+search.enable=true
+
+# Elasticsearch settings (if using)
+search.elasticsearch.server=http://localhost:9200
+```
+
+### Development Settings
+
+```properties
+# Show detailed errors (disable in production)
+portal.error.showdetail=false
+
+# Log content cleaner errors
+content.cleaner.errors.logged=true
+```
+
+## Directory Structure
+
+Ensure the following directories exist:
+
+```bash
+mkdir -p $TOMCAT_HOME/sakai
+mkdir -p $TOMCAT_HOME/components
+mkdir -p $TOMCAT_HOME/webapps
+```
+
+## File Permissions
+
+Set proper permissions:
+
+```bash
+chmod +x $TOMCAT_HOME/bin/*.sh
+chown -R tomcat:tomcat $TOMCAT_HOME
+```
+
+## Database Setup
+
+Before starting Tomcat, create the database:
+
+```sql
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4;
+CREATE USER 'sakai'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+<Warning>
+Use a strong password for the database user in production environments.
+</Warning>
+
+## JDBC Driver
+
+Download and install the appropriate JDBC driver:
+
+**MariaDB/MySQL**:
+```bash
+wget https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.1.2/mariadb-java-client-3.1.2.jar
+cp mariadb-java-client-3.1.2.jar $TOMCAT_HOME/lib/
+```
+
+## Starting and Stopping Tomcat
+
+### Start Tomcat
+
+```bash
+cd $TOMCAT_HOME/bin
+./startup.sh
+```
+
+With log monitoring:
+```bash
+./startup.sh && tail -f ../logs/catalina.out
+```
+
+### Stop Tomcat
+
+```bash
+cd $TOMCAT_HOME/bin
+./shutdown.sh
+```
+
+Force stop if needed:
+```bash
+./shutdown.sh -force
+```
+
+## Logging Configuration
+
+Configure logging in `sakai.properties`:
+
+```properties
+# Log configuration
+log.config.count=2
+log.config.1=INFO.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener
+log.config.2=DEBUG.org.hibernate.SQL
+
+# Hibernate logging
+hibernate.show_sql=false
+hibernate.generate_statistics=false
+```
+
+## Production Checklist
+
+Before deploying to production:
+
+- [ ] Set appropriate heap memory (`-Xms` and `-Xmx`)
+- [ ] Configure proper timezone
+- [ ] Set strong database password
+- [ ] Disable demo mode
+- [ ] Configure SSL/HTTPS
+- [ ] Set `portal.error.showdetail=false`
+- [ ] Configure email settings
+- [ ] Set up log rotation
+- [ ] Configure firewall rules
+- [ ] Test database connection
+- [ ] Review security settings
+
+## Troubleshooting
+
+### OutOfMemoryError
+
+**Symptom**: Tomcat crashes with OutOfMemoryError
+
+**Solution**: Increase heap size in `setenv.sh`:
+```bash
+CATALINA_OPTS="$CATALINA_OPTS -Xms4g -Xmx4g"
+```
+
+### PermGen/Metaspace Errors
+
+**Symptom**: PermGen or Metaspace errors
+
+**Solution**: Already handled by `-XX:+UseCompressedOops` and modern GC
+
+### Port Already in Use
+
+**Symptom**: Port 8080 or 8005 already in use
+
+**Solution**: Change ports in `server.xml` or stop conflicting service:
+```bash
+lsof -i :8080
+kill -9 <PID>
+```
+
+### Database Connection Failures
+
+**Symptom**: Cannot connect to database
+
+**Solution**: Verify:
+- Database is running
+- Credentials in `sakai.properties` are correct
+- JDBC driver is in `$TOMCAT_HOME/lib/`
+- Network connectivity to database server
+
+## Next Steps
+
+- Review the [official Sakai Install Guide](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17310646930/Sakai+21+Install+Guide+Source)
+- Explore [Sakai configuration options](https://sakaiproject.atlassian.net/wiki/spaces/DOC)
+- Join the [Sakai community](https://apereo.slack.com)

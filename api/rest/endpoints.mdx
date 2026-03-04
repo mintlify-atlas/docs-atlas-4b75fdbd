@@ -1,0 +1,211 @@
+---
+title: REST API Endpoints
+description: Comprehensive reference for Sakai's REST API endpoints
+---
+
+Sakai provides a modern REST API through the WebAPI module, exposing various tools and services through standardized HTTP endpoints.
+
+## Base URL
+
+All REST API endpoints are relative to your Sakai installation:
+
+```
+https://your-sakai-instance.edu/api
+```
+
+## Available Endpoints
+
+### Announcements
+
+<ParamField path="GET /users/me/announcements" type="endpoint">
+  Get announcements for the current user from their pinned sites
+</ParamField>
+
+**Response**: Returns a list of recent announcements with site information and URLs.
+
+```json
+{
+  "announcements": [
+    {
+      "id": "announcement-id",
+      "title": "Important Course Update",
+      "body": "...",
+      "siteId": "site-123",
+      "siteTitle": "Chemistry 101",
+      "createdBy": "instructor@university.edu",
+      "createdDate": "2024-03-04T10:30:00Z",
+      "url": "/portal/site/site-123/tool/announcement-tool-id"
+    }
+  ]
+}
+```
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/AnnouncementsController.java:56`
+
+### Calendar
+
+<ParamField path="GET /users/me/calendar" type="endpoint">
+  Get calendar events for the current user
+</ParamField>
+
+**Response**: Returns upcoming calendar events from user's sites.
+
+```json
+{
+  "events": [
+    {
+      "id": "event-id",
+      "title": "Final Exam",
+      "description": "...",
+      "startTime": "2024-03-15T14:00:00Z",
+      "endTime": "2024-03-15T16:00:00Z",
+      "siteId": "site-123",
+      "type": "exam",
+      "url": "/portal/site/site-123"
+    }
+  ]
+}
+```
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/CalendarController.java:47`
+
+### Grades
+
+<ParamField path="GET /sites/{siteId}/grades" type="endpoint">
+  Get gradebook information for a site
+</ParamField>
+
+**Parameters**:
+- `siteId` (path) - The site identifier
+
+**Response**: Returns gradebook items and grades for the current user.
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/GradesController.java`
+
+### Forums/Discussions
+
+<ParamField path="GET /users/me/forums" type="endpoint">
+  Get forum topics and messages for the current user
+</ParamField>
+
+**Response**: Returns recent forum activity and unread messages.
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/ForumsController.java`
+
+### Dashboard
+
+<ParamField path="GET /users/me/dashboard" type="endpoint">
+  Get dashboard information for the current user
+</ParamField>
+
+**Response**: Aggregated data including announcements, assignments, calendar events, and grades.
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/DashboardController.java`
+
+### Conversations
+
+<ParamField path="GET /sites/{siteId}/conversations" type="endpoint">
+  Get conversations (discussion topics) for a site
+</ParamField>
+
+<ParamField path="POST /sites/{siteId}/conversations" type="endpoint">
+  Create a new conversation topic
+</ParamField>
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/ConversationsController.java`
+
+### Lessons
+
+<ParamField path="GET /sites/{siteId}/lessons" type="endpoint">
+  Get lesson pages for a site
+</ParamField>
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/LessonsController.java`
+
+### Notifications
+
+<ParamField path="GET /users/me/notifications" type="endpoint">
+  Get notifications for the current user
+</ParamField>
+
+<ParamField path="PUT /users/me/notifications/{notificationId}" type="endpoint">
+  Mark a notification as read
+</ParamField>
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/NotificationsController.java`
+
+### Permissions
+
+<ParamField path="GET /sites/{siteId}/permissions" type="endpoint">
+  Get current user's permissions for a site
+</ParamField>
+
+**Response**: Returns a list of permissions the current user has in the specified site.
+
+**Source**: `webapi/src/main/java/org/sakaiproject/webapi/controllers/PermissionsController.java`
+
+## Response Format
+
+All endpoints return JSON by default. The response structure typically includes:
+
+```json
+{
+  "data": { },
+  "status": "success",
+  "timestamp": "2024-03-04T10:30:00Z"
+}
+```
+
+## Error Responses
+
+<ResponseField name="error" type="object">
+  Error details when a request fails
+  
+  <Expandable title="properties">
+    <ResponseField name="status" type="string">
+      HTTP status code (e.g., "401", "403", "404")
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Human-readable error message
+    </ResponseField>
+    
+    <ResponseField name="timestamp" type="string">
+      ISO 8601 timestamp of the error
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Example error response:
+
+```json
+{
+  "error": {
+    "status": "403",
+    "message": "Permission denied",
+    "timestamp": "2024-03-04T10:30:00Z"
+  }
+}
+```
+
+## HTTP Status Codes
+
+- `200 OK` - Request successful
+- `201 Created` - Resource created successfully
+- `400 Bad Request` - Invalid request parameters
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Resource not found
+- `500 Internal Server Error` - Server error
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/rest/authentication">
+    Learn how to authenticate with the REST API
+  </Card>
+  
+  <Card title="Examples" icon="code" href="/api/rest/examples">
+    View practical REST API usage examples
+  </Card>
+</CardGroup>

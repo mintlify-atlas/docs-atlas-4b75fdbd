@@ -1,0 +1,637 @@
+---
+title: Performance Tuning
+description: Optimize Sakai LMS performance for production deployments with best practices for JVM, database, and caching configuration
+---
+
+## Overview
+
+Proper performance tuning is essential for delivering a responsive Sakai experience to users. This guide covers JVM optimization, database tuning, caching strategies, and infrastructure best practices.
+
+## JVM Tuning
+
+### Heap Memory Configuration
+
+Configure JVM memory settings in `$TOMCAT_HOME/bin/setenv.sh`:
+
+```bash
+#!/bin/bash
+# Sakai JVM Configuration
+
+# Heap size (8GB for medium deployment)
+export JAVA_OPTS="-server -Xms8g -Xmx8g"
+
+# Use G1 Garbage Collector (recommended for Java 11+)
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC"
+
+# GC tuning
+export JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=200"
+export JAVA_OPTS="$JAVA_OPTS -XX:ParallelGCThreads=4"
+export JAVA_OPTS="$JAVA_OPTS -XX:ConcGCThreads=2"
+
+# Metaspace (for class metadata)
+export JAVA_OPTS="$JAVA_OPTS -XX:MetaspaceSize=512m"
+export JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=1g"
+
+# Heap dump on OOM for debugging
+export JAVA_OPTS="$JAVA_OPTS -XX:+HeapDumpOnOutOfMemoryError"
+export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/var/log/sakai/heap"
+
+# GC logging (Java 11+)
+export JAVA_OPTS="$JAVA_OPTS -Xlog:gc*:file=/var/log/sakai/gc.log:time,uptime:filecount=5,filesize=100M"
+```
+
+### Memory Sizing Guidelines
+
+| Users | Concurrent Sessions | Recommended Heap |
+|-------|--------------------|-----------------|
+| < 1,000 | < 100 | 4 GB |
+| 1,000 - 5,000 | 100 - 500 | 8 GB |
+| 5,000 - 15,000 | 500 - 1,500 | 16 GB |
+| > 15,000 | > 1,500 | 24 GB+ |
+
+<Note>
+Leave 40-50% of system RAM for OS file system caching and other processes. Do not allocate all RAM to JVM heap.
+</Note>
+
+### Garbage Collection Strategy
+
+#### G1GC (Recommended)
+
+G1 Garbage Collector is ideal for Sakai:
+
+```bash
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC"
+export JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=200"
+export JAVA_OPTS="$JAVA_OPTS -XX:G1HeapRegionSize=16m"
+export JAVA_OPTS="$JAVA_OPTS -XX:InitiatingHeapOccupancyPercent=45"
+```
+
+#### ZGC (For Java 17+ Large Heaps)
+
+For very large heaps (>32GB):
+
+```bash
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseZGC"
+export JAVA_OPTS="$JAVA_OPTS -XX:ZCollectionInterval=120"
+```
+
+### JVM Monitoring
+
+Enable JMX for monitoring:
+
+```bash
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=9999"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=true"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=true"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.password.file=/path/to/jmxremote.password"
+```
+
+## Database Performance
+
+### Connection Pool Tuning
+
+Optimize database connection pool in `sakai.properties`:
+
+```properties
+# Connection pool size
+initialSize@javax.sql.BaseDataSource=20
+maxTotal@javax.sql.BaseDataSource=200
+maxIdle@javax.sql.BaseDataSource=100
+minIdle@javax.sql.BaseDataSource=20
+
+# Connection validation
+validationQuery@javax.sql.BaseDataSource=SELECT 1 FROM DUAL
+testOnBorrow@javax.sql.BaseDataSource=true
+testWhileIdle@javax.sql.BaseDataSource=true
+timeBetweenEvictionRunsMillis@javax.sql.BaseDataSource=30000
+
+# Connection timeouts
+maxWaitMillis@javax.sql.BaseDataSource=30000
+removeAbandonedOnBorrow@javax.sql.BaseDataSource=true
+removeAbandonedTimeout@javax.sql.BaseDataSource=300
+
+# Transaction isolation
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+```
+
+### MySQL/MariaDB Optimization
+
+#### Database Configuration
+
+Optimize `my.cnf` for Sakai:
+
+```ini
+[mysqld]
+# Buffer pool size (70-80% of dedicated DB server RAM)
+innodb_buffer_pool_size = 24G
+innodb_buffer_pool_instances = 8
+
+# Log file size
+innodb_log_file_size = 2G
+innodb_log_buffer_size = 64M
+
+# I/O tuning
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_io_capacity = 2000
+innodb_io_capacity_max = 4000
+
+# Thread pool
+thread_cache_size = 100
+max_connections = 500
+
+# Query cache (disabled in MySQL 8.0+)
+# query_cache_type = 0
+# query_cache_size = 0
+
+# Table cache
+table_open_cache = 4000
+table_definition_cache = 2000
+
+# Temporary tables
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+# Binary logging (for replication/backup)
+log_bin = /var/log/mysql/mysql-bin.log
+expire_logs_days = 7
+max_binlog_size = 100M
+
+# Character set
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# Performance schema (for monitoring)
+performance_schema = ON
+```
+
+#### Index Optimization
+
+Regularly analyze and optimize tables:
+
+```sql
+-- Analyze tables
+ANALYZE TABLE SAKAI_SESSION;
+ANALYZE TABLE SAKAI_EVENT;
+ANALYZE TABLE CONTENT_RESOURCE;
+
+-- Optimize tables (runs during maintenance window)
+OPTIMIZE TABLE SAKAI_EVENT;
+OPTIMIZE TABLE SAKAI_SESSION;
+
+-- Check for missing indexes
+SELECT * FROM sys.schema_unused_indexes;
+SELECT * FROM sys.statements_with_full_table_scans;
+```
+
+#### Slow Query Log
+
+Enable slow query logging:
+
+```ini
+[mysqld]
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow-query.log
+long_query_time = 2
+log_queries_not_using_indexes = 1
+```
+
+Analyze slow queries:
+
+```bash
+# Summarize slow queries
+mysqldumpslow -s t -t 10 /var/log/mysql/slow-query.log
+
+# Or use pt-query-digest (Percona Toolkit)
+pt-query-digest /var/log/mysql/slow-query.log
+```
+
+### Hibernate Optimization
+
+Configure Hibernate in `sakai.properties`:
+
+```properties
+# Disable SQL logging in production
+hibernate.show_sql=false
+hibernate.generate_statistics=false
+
+# Batch processing
+hibernate.jdbc.batch_size=20
+hibernate.order_inserts=true
+hibernate.order_updates=true
+
+# Statement cache
+hibernate.jdbc.fetch_size=50
+
+# Connection handling
+hibernate.connection.isolation=2
+hibernate.connection.autocommit=false
+```
+
+<Warning>
+Never enable `hibernate.show_sql=true` or `hibernate.generate_statistics=true` in production environments.
+</Warning>
+
+## Caching Configuration
+
+### Apache Ignite (Distributed Cache)
+
+Sakai uses Apache Ignite for distributed second-level caching in clustered deployments.
+
+#### Ignite Configuration
+
+Configure in `sakai.properties`:
+
+```properties
+# Ignite node configuration
+ignite.node=node1
+ignite.name=sakai-cluster
+ignite.home=/var/sakai/ignite
+
+# Network settings
+ignite.address=10.1.1.100
+ignite.addresses=10.1.1.101:49010..49019,10.1.1.102:49010..49019
+ignite.port=49000
+ignite.range=20
+
+# Message queue limits
+ignite.tcpMessageQueueLimit=1024
+ignite.tcpSlowClientMessageQueueLimit=512
+```
+
+#### Cache Data Regions
+
+Configure in `kernel-impl/src/main/webapp/WEB-INF/ignite-components.xml`:
+
+```xml
+<!-- Hibernate L2 Cache Region -->
+<bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+    <property name="name" value="hibernate_l2_region"/>
+    <property name="initialSize" value="#{300 * 1024 * 1024}"/>
+    <property name="maxSize" value="#{600 * 1024 * 1024}"/>
+    <property name="pageEvictionMode" value="RANDOM_2_LRU"/>
+    <property name="persistenceEnabled" value="false"/>
+    <property name="metricsEnabled" value="true"/>
+</bean>
+
+<!-- Spring Cache Region -->
+<bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+    <property name="name" value="spring_region"/>
+    <property name="initialSize" value="#{10 * 1024 * 1024}"/>
+    <property name="maxSize" value="#{100 * 1024 * 1024}"/>
+    <property name="pageEvictionMode" value="RANDOM_2_LRU"/>
+    <property name="persistenceEnabled" value="false"/>
+    <property name="metricsEnabled" value="true"/>
+</bean>
+```
+
+### Memory Cache Configuration
+
+Configure cache time-to-live in `sakai.properties`:
+
+```properties
+# User cache
+memory.org.sakaiproject.user.api.UserDirectoryService.callCache=timeToLiveSeconds=3600
+memory.org.sakaiproject.user.api.UserDirectoryService.cache=timeToLiveSeconds=3600
+
+# Site cache
+memory.org.sakaiproject.site.api.SiteService.cache=timeToLiveSeconds=3600
+
+# Authz cache
+memory.org.sakaiproject.authz.api.SecurityService.cache=timeToLiveSeconds=600
+
+# Gradebook notifications cache
+memory.org.sakaiproject.gradebookng.cache.notifications=timeToLiveSeconds=10
+```
+
+## Tomcat Performance
+
+### Connector Configuration
+
+Optimize `$TOMCAT_HOME/conf/server.xml`:
+
+```xml
+<Connector port="8080" 
+           protocol="org.apache.coyote.http11.Http11NioProtocol"
+           maxThreads="200"
+           minSpareThreads="25"
+           maxConnections="10000"
+           acceptCount="100"
+           connectionTimeout="20000"
+           keepAliveTimeout="60000"
+           maxKeepAliveRequests="100"
+           compression="on"
+           compressionMinSize="2048"
+           compressibleMimeType="text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json"
+           URIEncoding="UTF-8" />
+```
+
+### Thread Pool Sizing
+
+```
+maxThreads = (Number of CPUs) * (Thread Pool Multiplier)
+```
+
+Typical multiplier: 25-50 for I/O-bound applications like Sakai
+
+Example for 8-core server:
+```
+maxThreads = 8 * 25 = 200
+```
+
+### Session Configuration
+
+Optimize session management in `sakai.properties`:
+
+```properties
+# Session timeout (30 minutes)
+inactiveInterval@org.sakaiproject.tool.api.SessionManager=1800
+
+# Session clustering (for multi-node deployments)
+# Enable session replication
+session.cluster.enabled=true
+```
+
+## Content Delivery Optimization
+
+### Content Hosting Performance
+
+Optimize content hosting in `sakai.properties`:
+
+```properties
+# Filesystem content hosting
+bodyPath@org.sakaiproject.content.api.ContentHostingService=/var/sakai/content
+
+# Performance tuning
+content.upload.max=100
+content.upload.ceiling=100
+
+# Streaming buffer size
+content.streamingBufferSize=4096
+```
+
+### Cloud Storage for Content
+
+For large-scale deployments, use cloud storage:
+
+```properties
+# AWS S3
+content.aws.s3.enabled=true
+content.aws.s3.bucket=sakai-content
+content.aws.s3.region=us-east-1
+
+# Azure Blob Storage
+content.azure.enabled=true
+content.azure.accountName=sakaistorage
+content.azure.containerName=content
+```
+
+<Note>
+Cloud storage reduces local disk I/O and enables better scalability for content hosting.
+</Note>
+
+## Search Performance
+
+### Elasticsearch Configuration
+
+If using Elasticsearch for search:
+
+```properties
+# Enable search
+search.enable=true
+
+# Elasticsearch configuration
+search.elasticsearch.nodes=es-node1:9300,es-node2:9300
+search.elasticsearch.cluster=sakai-search
+
+# Indexing performance
+contentIndexBatchSize@org.sakaiproject.search.api.SearchIndexBuilder=50
+period@org.sakaiproject.search.api.SearchIndexBuilder=300000
+```
+
+#### Elasticsearch Cluster Settings
+
+```yaml
+# elasticsearch.yml
+cluster.name: sakai-search
+node.name: es-node1
+
+# Memory
+bootstrap.memory_lock: true
+
+# Network
+network.host: 10.1.1.10
+http.port: 9200
+transport.port: 9300
+
+# Discovery
+discovery.seed_hosts: ["es-node1", "es-node2", "es-node3"]
+cluster.initial_master_nodes: ["es-node1", "es-node2", "es-node3"]
+
+# Index settings
+index.number_of_shards: 3
+index.number_of_replicas: 1
+```
+
+## Scheduled Job Optimization
+
+### Job Scheduler Configuration
+
+Optimize background jobs in `sakai.properties`:
+
+```properties
+# Delay scheduler startup (minutes)
+startSchedulerDelayMinutes@org.sakaiproject.api.app.scheduler.SchedulerManager=5
+
+# Event archiving (off-peak hours)
+event.archive.cron=0 0 2 * * ?
+
+# Session cleanup
+org.sakaiproject.component.cleanup.interval=3600000
+```
+
+### Disable Unnecessary Jobs
+
+```properties
+# Disable unused schedulers
+#startScheduler@org.sakaiproject.api.app.scheduler.SchedulerManager=false
+```
+
+## Network and Infrastructure
+
+### Load Balancer Configuration
+
+For clustered deployments, configure load balancer with:
+
+- **Session Affinity**: Enable sticky sessions
+- **Health Checks**: HTTP GET to `/portal/login`
+- **Connection Draining**: 60 seconds
+- **Keep-Alive**: Enable with 60 second timeout
+
+### Apache HTTPD Front-End
+
+Configure Apache as reverse proxy:
+
+```apache
+# Enable required modules
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_http_module modules/mod_proxy_http.so
+LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
+LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
+
+# Compression
+LoadModule deflate_module modules/mod_deflate.so
+
+<VirtualHost *:80>
+    ServerName sakai.example.edu
+    
+    # Compression
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+        AddOutputFilterByType DEFLATE text/javascript application/javascript application/json
+    </IfModule>
+    
+    # Static content caching
+    <LocationMatch "\.(js|css|jpg|jpeg|png|gif|ico|woff|woff2|ttf)$">
+        Header set Cache-Control "max-age=31536000, public"
+    </LocationMatch>
+    
+    # Proxy configuration
+    ProxyPreserveHost On
+    ProxyTimeout 300
+    
+    # Connection pooling
+    <Proxy balancer://sakaicluster>
+        BalancerMember http://10.1.1.101:8080 route=node1 keepalive=On ttl=60
+        BalancerMember http://10.1.1.102:8080 route=node2 keepalive=On ttl=60
+        ProxySet stickysession=JSESSIONID|jsessionid scolonpathdelim=On
+        ProxySet lbmethod=byrequests
+    </Proxy>
+    
+    ProxyPass / balancer://sakaicluster/
+    ProxyPassReverse / balancer://sakaicluster/
+</VirtualHost>
+```
+
+### CDN for Static Assets
+
+Offload static content to CDN:
+
+```properties
+# CDN configuration
+portal.cdn.url=https://cdn.example.com/sakai
+portal.cdn.version=25.1
+```
+
+## Monitoring and Metrics
+
+### Enable Performance Metrics
+
+```properties
+# Event tracking
+event.trackEvents=true
+event.maxBatchSize=100
+
+# Site statistics
+stats.enabled=true
+```
+
+### JMX Metrics
+
+Monitor key metrics via JMX:
+
+- Heap memory usage
+- Thread count and state
+- Database connection pool stats
+- Cache hit rates
+- Request throughput
+
+## Performance Testing
+
+### Load Testing Tools
+
+Use tools to validate performance:
+
+- **Apache JMeter**: Load testing
+- **Gatling**: Performance testing
+- **Artillery**: Modern load testing
+
+Example JMeter test plan:
+
+```xml
+<ThreadGroup>
+  <numThreads>100</numThreads>
+  <rampTime>60</rampTime>
+  <duration>1800</duration>
+</ThreadGroup>
+```
+
+### Performance Baselines
+
+Establish baselines:
+
+| Metric | Target |
+|--------|--------|
+| Login response time | < 2 seconds |
+| Portal page load | < 3 seconds |
+| Assignment submission | < 5 seconds |
+| Gradebook load | < 4 seconds |
+| Search query | < 2 seconds |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Maintenance" icon="wrench">
+    Schedule regular database optimization, cache clearing, and log rotation during off-peak hours.
+  </Card>
+  
+  <Card title="Monitor Continuously" icon="chart-line">
+    Implement comprehensive monitoring to identify performance degradation before it impacts users.
+  </Card>
+  
+  <Card title="Scale Horizontally" icon="server">
+    Add application nodes rather than vertically scaling when hitting resource limits.
+  </Card>
+  
+  <Card title="Test Under Load" icon="gauge-high">
+    Regularly conduct load testing to validate performance under peak usage scenarios.
+  </Card>
+</CardGroup>
+
+## Troubleshooting Performance Issues
+
+### High CPU Usage
+
+1. Capture thread dump: `kill -3 <tomcat_pid>`
+2. Analyze with tools like FastThread or VisualVM
+3. Look for tight loops or blocking operations
+4. Check scheduled jobs running during peak hours
+
+### Memory Issues
+
+1. Analyze heap dump with Eclipse MAT
+2. Look for memory leaks (retained objects)
+3. Check cache sizes and TTL settings
+4. Review large object allocations
+
+### Slow Database Queries
+
+1. Enable slow query log
+2. Use `EXPLAIN` to analyze query execution plans
+3. Add missing indexes
+4. Optimize queries or add caching
+
+### Cache Inefficiency
+
+1. Monitor cache hit rates via JMX
+2. Adjust TTL settings
+3. Increase cache size if hit rate is low
+4. Review what is being cached
+
+## Related Resources
+
+- [Monitoring and Logging](/deployment/monitoring)
+- [Backup and Restore](/deployment/backup-restore)
+- [Upgrade Procedures](/deployment/upgrades)
+- [Apache Ignite Documentation](https://ignite.apache.org/docs/latest/)

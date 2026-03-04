@@ -1,0 +1,605 @@
+---
+title: Upgrade Procedures
+description: Step-by-step procedures for upgrading Sakai LMS to newer versions
+---
+
+## Overview
+
+Upgrading Sakai requires careful planning and execution to minimize downtime and ensure data integrity. This guide covers the complete upgrade process from planning through post-upgrade validation.
+
+## Supported Versions
+
+### Community Supported Versions
+
+| Version | Release Date | Support Status | End of Support |
+|---------|-------------|----------------|----------------|
+| Sakai 25.1 | Q1 2026 | Active | TBD |
+| Sakai 23.4 | Q4 2024 | Active | Q4 2026 |
+| Sakai 22.5 | Q3 2024 | Security Only | Q3 2025 |
+| Sakai 21.5 | Q2 2023 | Security Only | Q2 2025 |
+
+### Development Versions
+
+- **Sakai 25.2** - Expected Q2 2026
+- **Sakai 23.5** - Expected Q4 2025
+- **Sakai 22.6** - Expected Q4 2025
+
+<Warning>
+Versions not listed above are no longer supported. Running unsupported versions poses significant security risks.
+</Warning>
+
+## Pre-Upgrade Planning
+
+### Timeline
+
+<Steps>
+1. **Planning Phase** (2-4 weeks)
+   - Review release notes and migration guides
+   - Identify custom code requiring updates
+   - Plan testing scenarios
+
+2. **Testing Phase** (2-4 weeks)
+   - Test upgrade in QA environment
+   - Validate custom tools and integrations
+   - Performance test new version
+
+3. **Execution Phase** (4-8 hours)
+   - Schedule maintenance window
+   - Perform production upgrade
+   - Validate functionality
+
+4. **Post-Upgrade Phase** (1-2 weeks)
+   - Monitor system performance
+   - Address user-reported issues
+   - Optimize configuration
+</Steps>
+
+### Review Release Notes
+
+Before upgrading, thoroughly review:
+
+- **Release Notes**: New features, bug fixes, and known issues
+- **Upgrade Documentation**: Version-specific instructions
+- **Breaking Changes**: API changes, deprecated features
+- **Database Changes**: Schema migrations, data conversions
+
+<Note>
+Release documentation is available at: https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17225318626/Release+Documentation
+</Note>
+
+### Check Dependencies
+
+#### Java Version Requirements
+
+| Sakai Version | Java Version |
+|--------------|-------------|
+| Sakai 24-25 | Java 17 |
+| Sakai 22-23 | Java 11 |
+| Sakai 19-21 | Java 8 |
+
+#### Tomcat Version Requirements
+
+| Sakai Version | Tomcat Version |
+|--------------|---------------|
+| Sakai 21+ | Tomcat 9 |
+| Sakai 19-20 | Tomcat 8.5 |
+
+#### Database Support
+
+- MySQL 5.7+ or MariaDB 10.3+
+- Oracle 12c+
+- PostgreSQL 10+
+
+<Warning>
+Upgrading Java or Tomcat versions may require additional configuration changes. Test thoroughly in QA environment.
+</Warning>
+
+## Upgrade Preparation
+
+### 1. Backup Everything
+
+Create complete backups before starting:
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/pre-upgrade-$(date +%Y%m%d)"
+mkdir -p $BACKUP_DIR
+
+# Database backup
+mysqldump -u sakai -p --single-transaction \
+  --routines --triggers --events \
+  sakai | gzip > $BACKUP_DIR/sakai-db.sql.gz
+
+# Content hosting backup
+tar -czf $BACKUP_DIR/sakai-content.tar.gz /var/sakai/content
+
+# Configuration backup
+tar -czf $BACKUP_DIR/sakai-config.tar.gz \
+  /var/sakai/sakai.properties \
+  /opt/tomcat/conf \
+  /opt/tomcat/bin/setenv.sh
+
+# Tomcat webapps (current version)
+tar -czf $BACKUP_DIR/tomcat-webapps.tar.gz /opt/tomcat/webapps
+```
+
+### 2. Document Current State
+
+Record current system information:
+
+```bash
+# Java version
+java -version > $BACKUP_DIR/system-info.txt
+
+# Tomcat version
+$TOMCAT_HOME/bin/version.sh >> $BACKUP_DIR/system-info.txt
+
+# Installed tools
+ls -la /opt/tomcat/webapps >> $BACKUP_DIR/system-info.txt
+
+# Database version
+mysql --version >> $BACKUP_DIR/system-info.txt
+
+# Sakai version
+grep "version=" /opt/tomcat/webapps/portal/WEB-INF/web.xml >> $BACKUP_DIR/system-info.txt
+```
+
+### 3. Prepare Test Environment
+
+Create a QA environment that mirrors production:
+
+```bash
+# Clone production database to QA
+mysqldump -h prod-db -u sakai -p sakai | \
+  mysql -h qa-db -u sakai -p sakai_qa
+
+# Copy content hosting
+rsync -avz prod-server:/var/sakai/content/ \
+  /var/sakai/content-qa/
+
+# Copy configuration
+scp prod-server:/var/sakai/sakai.properties \
+  /var/sakai/sakai-qa.properties
+```
+
+## Build New Version
+
+### Download Source Code
+
+```bash
+# Clone Sakai repository
+git clone https://github.com/sakaiproject/sakai.git
+cd sakai
+
+# Checkout target version
+git checkout 25.1
+
+# Or download release tarball
+wget http://source.sakaiproject.org/release/25.1/sakai-src-25.1.tar.gz
+tar -xzf sakai-src-25.1.tar.gz
+cd sakai-src-25.1
+```
+
+### Apply Custom Code
+
+If you have local customizations:
+
+```bash
+# Apply custom patches
+for patch in /path/to/patches/*.patch; do
+  git apply $patch
+done
+
+# Merge custom modules
+cp -r /path/to/custom/modules/* .
+```
+
+### Build Sakai
+
+```bash
+# Clean build
+mvn clean install
+
+# Skip tests for faster build (not recommended)
+# mvn clean install -DskipTests
+
+# Build specific modules only
+# mvn clean install -pl :module-name -am
+```
+
+<Note>
+Building Sakai from source typically takes 20-40 minutes depending on hardware and whether artifacts are cached.
+</Note>
+
+## Upgrade Process
+
+### Maintenance Window Checklist
+
+<Steps>
+1. **Pre-Maintenance (T-1 hour)**
+   - [ ] Notify users of scheduled maintenance
+   - [ ] Verify backups are complete and valid
+   - [ ] Prepare rollback plan
+   - [ ] Have team on standby
+
+2. **Start Maintenance (T-0)**
+   - [ ] Put maintenance page in place
+   - [ ] Stop Tomcat
+   - [ ] Verify no active sessions
+
+3. **Upgrade Steps**
+   - [ ] Deploy new code
+   - [ ] Update configuration
+   - [ ] Run database conversions
+   - [ ] Clear caches
+
+4. **Validation**
+   - [ ] Start Tomcat
+   - [ ] Monitor startup logs
+   - [ ] Test critical functionality
+   - [ ] Remove maintenance page
+
+5. **Post-Maintenance**
+   - [ ] Monitor system performance
+   - [ ] Notify users system is available
+   - [ ] Document any issues
+</Steps>
+
+### Step-by-Step Upgrade
+
+#### 1. Enable Maintenance Mode
+
+Create maintenance page:
+
+```bash
+# Apache configuration
+cat > /etc/httpd/conf.d/maintenance.conf << 'EOF'
+<VirtualHost *:80>
+  ServerName sakai.example.edu
+  
+  RewriteEngine On
+  RewriteCond %{REMOTE_ADDR} !^10\.1\.1\.
+  RewriteRule ^(.*)$ /maintenance.html [L]
+  
+  ProxyPass / http://localhost:8080/
+  ProxyPassReverse / http://localhost:8080/
+</VirtualHost>
+EOF
+
+systemctl reload httpd
+```
+
+#### 2. Stop Tomcat
+
+```bash
+# Stop Tomcat gracefully
+systemctl stop tomcat
+
+# Verify Tomcat is stopped
+ps aux | grep tomcat
+
+# Wait for sessions to expire (check logs)
+tail -f /opt/tomcat/logs/catalina.out
+```
+
+#### 3. Backup Current Deployment
+
+```bash
+# Backup current webapps
+mv /opt/tomcat/webapps /opt/tomcat/webapps.backup-$(date +%Y%m%d)
+
+# Backup current components
+mv /opt/tomcat/components /opt/tomcat/components.backup-$(date +%Y%m%d)
+
+# Create fresh directories
+mkdir /opt/tomcat/webapps
+mkdir -p /opt/tomcat/components/sakai
+```
+
+#### 4. Deploy New Version
+
+```bash
+# Deploy from Maven build
+export MAVEN_OPTS="-Xmx1024m"
+cd /path/to/sakai-source
+
+mvn clean install sakai:deploy \
+  -Dmaven.tomcat.home=/opt/tomcat \
+  -Dmaven.test.skip=true
+```
+
+Or deploy manually:
+
+```bash
+# Copy webapps
+cp -r sakai-bin/webapps/* /opt/tomcat/webapps/
+
+# Copy components
+cp -r sakai-bin/components/* /opt/tomcat/components/
+
+# Copy libraries
+cp -r sakai-bin/lib/* /opt/tomcat/lib/
+```
+
+#### 5. Update Configuration
+
+Review and update `sakai.properties`:
+
+```properties
+# Verify database connection
+url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+
+# Check new version-specific properties
+# (refer to release notes)
+
+# Disable auto-DDL for production
+auto.ddl=false
+```
+
+#### 6. Database Conversion
+
+<Warning>
+Always test database conversions in QA before running in production. Some conversions can take hours on large databases.
+</Warning>
+
+Database conversion scripts are typically in:
+```
+docs/conversion/sakai_{old_version}-{new_version}_{database}.sql
+```
+
+Run conversion:
+
+```bash
+# Review conversion script first
+less docs/conversion/sakai_23-25_mysql.sql
+
+# Test in QA first!
+mysql -u sakai -p sakai_qa < docs/conversion/sakai_23-25_mysql.sql
+
+# Run in production
+mysql -u sakai -p sakai < docs/conversion/sakai_23-25_mysql.sql 2>&1 | \
+  tee /var/log/sakai/db-conversion-$(date +%Y%m%d).log
+```
+
+<Note>
+Some Sakai versions include automatic database migrations. Check release notes to determine if manual conversion is required.
+</Note>
+
+#### 7. Clear Caches
+
+```bash
+# Clear work directory
+rm -rf /opt/tomcat/work/Catalina
+
+# Clear temp directory
+rm -rf /opt/tomcat/temp/*
+
+# Clear Sakai caches (if using Ignite)
+rm -rf /var/sakai/ignite/*
+```
+
+#### 8. Set Permissions
+
+```bash
+# Set ownership
+chown -R tomcat:tomcat /opt/tomcat/webapps
+chown -R tomcat:tomcat /opt/tomcat/components
+
+# Set permissions
+chmod -R 755 /opt/tomcat/webapps
+chmod -R 755 /opt/tomcat/components
+```
+
+#### 9. Start Tomcat
+
+```bash
+# Start Tomcat
+systemctl start tomcat
+
+# Monitor startup
+tail -f /opt/tomcat/logs/catalina.out
+
+# Check for errors
+grep -i "error\|exception" /opt/tomcat/logs/catalina.out
+```
+
+Startup typically takes 2-5 minutes. Watch for:
+
+```
+INFO: Server startup in [xxxxx] milliseconds
+```
+
+#### 10. Validate Upgrade
+
+<Steps>
+1. **Portal Access**
+   - Access portal: http://your-server/portal
+   - Verify login works
+   - Check portal renders correctly
+
+2. **Critical Tools**
+   - Test Assignments tool
+   - Test Gradebook
+   - Test Resources (content hosting)
+   - Test Forums/Messages
+
+3. **Integrations**
+   - Test LTI tools
+   - Test SSO/authentication
+   - Test email notifications
+
+4. **Performance**
+   - Monitor response times
+   - Check memory usage
+   - Review error logs
+</Steps>
+
+#### 11. Disable Maintenance Mode
+
+```bash
+# Remove maintenance configuration
+rm /etc/httpd/conf.d/maintenance.conf
+systemctl reload httpd
+```
+
+## Post-Upgrade Tasks
+
+### Monitoring
+
+Monitor system closely for 24-48 hours:
+
+```bash
+# Watch catalina.out for errors
+tail -f /opt/tomcat/logs/catalina.out | grep -i "error\|exception"
+
+# Monitor memory usage
+watch -n 5 'ps aux | grep java'
+
+# Check database connections
+mysqladmin -u sakai -p processlist
+```
+
+### Performance Optimization
+
+After upgrade, optimize performance:
+
+```bash
+# Rebuild search index
+# Admin Workspace → System Configuration → Search Index Builder
+
+# Update site statistics
+# Admin Workspace → Site Stats → Update Statistics
+
+# Clear browser caches
+# Notify users to clear browser cache
+```
+
+### User Communication
+
+```
+Subject: Sakai Upgraded to Version 25.1
+
+Dear Sakai Users,
+
+We have successfully upgraded Sakai to version 25.1. 
+This upgrade includes:
+
+- Improved performance and stability
+- New features in Assignments and Gradebook
+- Enhanced accessibility
+- Security updates
+
+Please clear your browser cache to ensure you see the 
+latest version. If you experience any issues, please 
+contact support at support@example.edu.
+
+Thank you for your patience during the maintenance window.
+```
+
+## Rollback Procedure
+
+If critical issues are discovered:
+
+<Warning>
+Only rollback if you encounter critical issues that prevent normal operation. Minor issues should be addressed with patches.
+</Warning>
+
+```bash
+# 1. Stop Tomcat
+systemctl stop tomcat
+
+# 2. Restore database
+mysql -u sakai -p sakai < /backup/pre-upgrade/sakai-db.sql
+
+# 3. Restore webapps
+rm -rf /opt/tomcat/webapps
+mv /opt/tomcat/webapps.backup-20260304 /opt/tomcat/webapps
+
+# 4. Restore components
+rm -rf /opt/tomcat/components
+mv /opt/tomcat/components.backup-20260304 /opt/tomcat/components
+
+# 5. Restore configuration
+cp /backup/pre-upgrade/sakai.properties /var/sakai/
+
+# 6. Clear caches
+rm -rf /opt/tomcat/work/Catalina
+rm -rf /opt/tomcat/temp/*
+
+# 7. Start Tomcat
+systemctl start tomcat
+```
+
+## Version-Specific Notes
+
+### Upgrading to Sakai 25
+
+- **Java 17 Required**: Upgrade from Java 11
+- **No `var` keyword**: Code using `var` must be refactored
+- **Web Components**: New frontend architecture
+- **Bootstrap 5.2**: UI framework upgrade
+
+### Upgrading to Sakai 23
+
+- **Java 11 Required**: Upgrade from Java 8
+- **Database Character Set**: Ensure UTF-8 MB4 support
+- **Assignment Conversion**: Major changes to assignments
+
+## Troubleshooting
+
+### Common Issues
+
+**Problem**: Tomcat fails to start after upgrade
+
+**Solution**: Check logs for missing dependencies or configuration errors:
+```bash
+grep -i "error\|exception" /opt/tomcat/logs/catalina.out
+```
+
+**Problem**: Database conversion fails
+
+**Solution**: Check for duplicate data or constraint violations:
+```bash
+# Review conversion script
+# Fix data issues manually
+# Re-run conversion
+```
+
+**Problem**: Tools not appearing in sites
+
+**Solution**: Clear tool registration cache:
+```bash
+# Restart Tomcat
+# Admin Workspace → Sites → Reset tool registration
+```
+
+**Problem**: Authentication fails after upgrade
+
+**Solution**: Verify authentication provider configuration in `sakai.properties`
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test First" icon="flask">
+    Always test upgrades in QA environment that mirrors production before upgrading production.
+  </Card>
+  
+  <Card title="Schedule Wisely" icon="calendar">
+    Schedule upgrades during low-usage periods (weekends, breaks) with adequate time buffer.
+  </Card>
+  
+  <Card title="Keep Current" icon="arrow-up">
+    Stay within 1-2 versions of current release. Large version jumps are riskier.
+  </Card>
+  
+  <Card title="Document Everything" icon="file-lines">
+    Document your upgrade process, customizations, and any issues encountered.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+- [Sakai Release Documentation](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17225318626/Release+Documentation)
+- [Quick Start from Source](https://github.com/sakaiproject/sakai/wiki/Quick-Start-from-Source)
+- [Backup and Restore](/deployment/backup-restore)
+- [Performance Tuning](/deployment/performance-tuning)

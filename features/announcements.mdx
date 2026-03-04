@@ -1,0 +1,224 @@
+---
+title: Announcements
+description: Share important information and updates with your course participants through time-sensitive announcements
+---
+
+## Overview
+
+The Announcements tool enables instructors and course administrators to broadcast important messages, updates, and reminders to all participants in a site. Announcements appear prominently on the home page and can be delivered via email notifications.
+
+## Key Features
+
+### Creating Announcements
+
+Share information quickly and effectively:
+
+- **Rich text editor**: Format announcements with headings, lists, links, and images
+- **Attachments**: Include files, documents, or resources
+- **Email notification**: Optionally send announcement to participants' email
+- **Publication dates**: Schedule announcements to appear at specific times
+- **Display duration**: Set how long announcements remain visible
+- **Priority levels**: Mark urgent announcements for special visibility
+
+<Steps>
+  <Step title="Access Announcements Tool">
+    Click on Announcements in your site's tool menu
+  </Step>
+  <Step title="Click Add">
+    Select the "Add" button to create a new announcement
+  </Step>
+  <Step title="Enter Content">
+    Provide a subject line and compose your message using the rich text editor
+  </Step>
+  <Step title="Configure Options">
+    Set visibility dates, email notification preferences, and attach files if needed
+  </Step>
+  <Step title="Post Announcement">
+    Click "Post Announcement" to publish immediately or save as draft
+  </Step>
+</Steps>
+
+### Announcement Display
+
+Control how and when announcements appear:
+
+- **Homepage widget**: Recent announcements displayed on site overview page
+- **Chronological order**: Newest announcements appear first
+- **Read/unread tracking**: Visual indicators for new announcements
+- **Archive view**: Access to older announcements
+- **Number of announcements**: Configure how many display on homepage
+
+<Tip>
+  Limit homepage announcements to 3-5 recent items to avoid overwhelming students. Older announcements remain accessible in the full Announcements tool.
+</Tip>
+
+### Email Notifications
+
+Reach participants directly via email:
+
+- **Immediate delivery**: Sends email as soon as announcement is posted
+- **Individual recipient preferences**: Users can opt out of announcement emails
+- **Subject line**: Email subject matches announcement subject
+- **Full content**: Complete announcement text included in email
+- **Link to site**: Email includes link back to the course site
+
+<Note>
+  Email notifications respect individual user preferences. Some participants may have disabled announcement emails in their account settings.
+</Note>
+
+### Scheduling Options
+
+Publish announcements at optimal times:
+
+| Option | Description | Use Case |
+|--------|-------------|----------|
+| Post Now | Immediately visible to all participants | Urgent updates or time-sensitive information |
+| Schedule Release | Set future date/time for publication | Prepare announcements in advance for scheduled release |
+| Hide Date | Remove announcement after specific date | Temporary information like event reminders |
+| Beginning Date | Set when announcement becomes visible | Align with course modules or specific dates |
+
+### Managing Announcements
+
+Keep your announcements organized:
+
+- **Edit existing**: Modify announcements after posting
+- **Delete**: Remove outdated announcements
+- **Reorder**: Change display order manually if needed
+- **Drafts**: Save work in progress before publishing
+- **Merge**: Combine announcement channels from multiple sites
+
+<Steps>
+  <Step title="Review Current Announcements">
+    Regularly check announcements list for outdated content
+  </Step>
+  <Step title="Archive or Delete">
+    Remove announcements that are no longer relevant
+  </Step>
+  <Step title="Update Important Items">
+    Edit existing announcements if information changes
+  </Step>
+</Steps>
+
+### Student Experience
+
+Participants interact with announcements through:
+
+- **Home page preview**: See recent announcements when logging into site
+- **Full announcements view**: Access complete list in Announcements tool
+- **Email delivery**: Receive copies in email inbox (if enabled)
+- **RSS feeds**: Subscribe to announcement feeds
+- **Mobile access**: View announcements on mobile devices
+- **Print option**: Print announcements for offline reference
+
+### Permissions
+
+Control who can create and manage announcements:
+
+| Role | Create | Edit Own | Edit All | Delete | View |
+|------|--------|----------|----------|--------|------|
+| Instructor | Yes | Yes | Yes | Yes | Yes |
+| Teaching Assistant | Optional | Yes | Optional | Optional | Yes |
+| Student | No | No | No | No | Yes |
+| Guest | No | No | No | No | Optional |
+
+<Tip>
+  Grant teaching assistants announcement creation permissions to help share course updates and reminders without requiring instructor involvement.
+</Tip>
+
+### Announcement Channels
+
+Organize announcements across sites:
+
+- **Site-specific**: Each site has its own announcement channel
+- **Merged channels**: Display announcements from multiple sites together
+- **Cross-site posting**: Share announcements to multiple sites simultaneously
+- **Channel management**: Control which merged channels display in your site
+
+### Attachments and Resources
+
+Enhance announcements with supplementary materials:
+
+- Upload files directly to announcements
+- Link to Resources in the site
+- Embed images within announcement text
+- Attach multiple files per announcement
+- Support for various file types (PDF, Word, images, etc.)
+
+## Best Practices
+
+### Writing Effective Announcements
+
+- **Clear subject lines**: Make the topic immediately obvious
+- **Concise content**: Keep announcements brief and scannable
+- **Action items**: Clearly state what students need to do
+- **Deadlines**: Include specific dates and times
+- **Formatting**: Use headings and lists for easy reading
+- **Links**: Provide direct links to related tools or resources
+
+### Frequency and Timing
+
+- Post announcements at consistent times (e.g., Monday mornings)
+- Avoid announcement fatigue by limiting frequency
+- Don't use announcements for routine information available elsewhere
+- Schedule important announcements for when students are most likely to check
+- Send reminders 1-2 days before deadlines, not just on due dates
+
+### Organization
+
+- Delete or hide outdated announcements regularly
+- Use consistent naming for recurring announcement types
+- Group related information into single announcements rather than multiple posts
+- Archive announcements from previous semesters rather than delete
+- Maintain a clean, current announcement list
+
+### Email Usage
+
+- Use email notification for urgent or critical information
+- Don't send email for minor updates or routine information
+- Consider student email fatigue when deciding to send notifications
+- Test email appearance by sending to yourself first
+- Remember that subject line appears in email inbox
+
+## Common Use Cases
+
+### Weekly Updates
+
+Send a regular announcement summarizing the week ahead:
+- Topics to be covered
+- Assignments due
+- Reminders about upcoming assessments
+- Office hours or special sessions
+
+### Important Reminders
+
+Use for time-sensitive information:
+- Exam date changes
+- Guest speaker announcements
+- Technical issues or outages
+- Weather-related class cancellations
+
+### Course Policies
+
+Post reference announcements that stay visible:
+- Grading policy clarifications
+- Submission guidelines
+- Communication expectations
+- Resource links
+
+<Note>
+  For information that needs to remain permanently accessible, consider adding it to a course syllabus or using a Lessons page rather than an announcement.
+</Note>
+
+## Technical Details
+
+The Announcements tool is built on:
+
+- **Core Interface**: `AnnouncementMessage` and `AnnouncementChannel` APIs (announcement/announcement-api/api/src/java/org/sakaiproject/announcement/api/AnnouncementMessage.java:34)
+- **Message System**: Built on Sakai's message framework
+- **Email Integration**: Uses Kernel email service for notifications
+- **RSS Support**: Generates RSS feeds for external aggregation
+- **Permissions**: Integrated with Sakai's role-based security
+
+<Tip>
+  Announcements can be syndicated via RSS feeds, allowing students to subscribe using feed readers or aggregate announcements from multiple courses.
+</Tip>

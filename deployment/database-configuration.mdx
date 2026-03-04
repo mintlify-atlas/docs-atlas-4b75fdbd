@@ -1,0 +1,450 @@
+---
+title: Database Configuration
+description: Configure Sakai to connect to MySQL, MariaDB, Oracle, and other database systems
+---
+
+## Overview
+
+Sakai supports multiple database backends including HSQLDB (development only), MySQL, MariaDB, and Oracle. This guide covers configuration for each supported database system.
+
+<Warning>
+HSQLDB is only suitable for development and testing. Never use HSQLDB in production environments.
+</Warning>
+
+## Database Properties Location
+
+Database configuration is set in your Sakai properties file (`sakai.properties` or preferably `local.properties`):
+
+```bash
+# Location
+$CATALINA_HOME/sakai/local.properties
+```
+
+## MariaDB Configuration (Recommended)
+
+MariaDB is the recommended database for Sakai production deployments.
+
+### Basic Configuration
+
+```properties
+# Database vendor
+vendor@org.sakaiproject.db.api.SqlService=mysql
+
+# JDBC driver class
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+
+# Hibernate dialect
+hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+
+# Database connection URL
+url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+
+# Connection validation (leave empty for JDBC4 drivers)
+validationQuery@javax.sql.BaseDataSource=
+
+# Transaction isolation level
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+# Database credentials
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=your_secure_password
+```
+
+<Warning>
+Never use default or weak passwords in production. Always use strong, randomly generated passwords for database access.
+</Warning>
+
+### MariaDB Server Configuration
+
+Add these settings to your MariaDB configuration file (`/etc/mysql/mariadb.conf.d/50-server.cnf` or `my.cnf`):
+
+```ini
+[mysqld]
+# Character set configuration
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+
+# Maximum packet size (adjust based on your needs)
+max_allowed_packet=64M
+
+# Connection settings
+max_connections=200
+wait_timeout=28800
+interactive_timeout=28800
+
+# InnoDB settings for better performance
+innodb_buffer_pool_size=2G
+innodb_log_file_size=256M
+innodb_flush_log_at_trx_commit=2
+innodb_flush_method=O_DIRECT
+
+# Query cache (for older MariaDB versions)
+query_cache_size=64M
+query_cache_type=1
+```
+
+### Create Database and User
+
+```sql
+-- Create database
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create user and grant privileges
+CREATE USER 'sakai'@'localhost' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+
+-- For remote access (adjust hostname as needed)
+CREATE USER 'sakai'@'%' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'%';
+
+FLUSH PRIVILEGES;
+```
+
+## MySQL Configuration
+
+MySQL is fully supported but MariaDB is generally preferred.
+
+### Basic Configuration
+
+```properties
+# Database vendor
+vendor@org.sakaiproject.db.api.SqlService=mysql
+
+# JDBC driver class
+driverClassName@javax.sql.BaseDataSource=com.mysql.jdbc.Driver
+
+# Hibernate dialect
+hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+
+# Database connection URL
+url@javax.sql.BaseDataSource=jdbc:mysql://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+
+# Connection validation (leave empty for JDBC4 drivers)
+validationQuery@javax.sql.BaseDataSource=
+
+# Transaction isolation level
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+# Database credentials
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=your_secure_password
+```
+
+### MySQL Server Configuration
+
+Add to `/etc/mysql/mysql.conf.d/mysqld.cnf`:
+
+```ini
+[mysqld]
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+max_allowed_packet=64M
+max_connections=200
+innodb_buffer_pool_size=2G
+innodb_log_file_size=256M
+```
+
+## Oracle Configuration
+
+For Oracle database deployments:
+
+### Basic Configuration
+
+```properties
+# Database vendor
+vendor@org.sakaiproject.db.api.SqlService=oracle
+
+# JDBC driver class
+driverClassName@javax.sql.BaseDataSource=oracle.jdbc.OracleDriver
+
+# Hibernate dialect (choose appropriate version)
+hibernate.dialect=org.hibernate.dialect.Oracle10gDialect
+# Or for Oracle 12c+:
+# hibernate.dialect=org.hibernate.dialect.Oracle12cDialect
+
+# Database connection URL
+url@javax.sql.BaseDataSource=jdbc:oracle:thin:@hostname:1521:SID
+# Or for Oracle service name:
+# url@javax.sql.BaseDataSource=jdbc:oracle:thin:@//hostname:1521/servicename
+
+# Connection validation
+validationQuery@javax.sql.BaseDataSource=select 1 from DUAL
+
+# Transaction isolation level
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+# Disable test on borrow for Oracle (recommended by University of Michigan)
+testOnBorrow@javax.sql.BaseDataSource=false
+
+# Database credentials
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=your_secure_password
+```
+
+<Warning>
+Oracle configuration requires the Oracle JDBC driver JAR file to be placed in your Tomcat `lib` directory. Download it from Oracle's website and ensure the license permits your use.
+</Warning>
+
+### Oracle Tablespace Setup
+
+```sql
+-- Create tablespace (adjust file paths and sizes)
+CREATE TABLESPACE sakai_data
+  DATAFILE '/u01/oracle/oradata/sakai_data01.dbf'
+  SIZE 2G
+  AUTOEXTEND ON
+  NEXT 512M
+  MAXSIZE UNLIMITED;
+
+-- Create temporary tablespace
+CREATE TEMPORARY TABLESPACE sakai_temp
+  TEMPFILE '/u01/oracle/oradata/sakai_temp01.dbf'
+  SIZE 1G
+  AUTOEXTEND ON
+  NEXT 256M
+  MAXSIZE UNLIMITED;
+
+-- Create user
+CREATE USER sakai
+  IDENTIFIED BY your_secure_password
+  DEFAULT TABLESPACE sakai_data
+  TEMPORARY TABLESPACE sakai_temp
+  QUOTA UNLIMITED ON sakai_data;
+
+-- Grant privileges
+GRANT CONNECT, RESOURCE TO sakai;
+GRANT CREATE SESSION TO sakai;
+GRANT CREATE TABLE TO sakai;
+GRANT CREATE SEQUENCE TO sakai;
+GRANT CREATE VIEW TO sakai;
+GRANT CREATE TRIGGER TO sakai;
+```
+
+## HSQLDB Configuration (Development Only)
+
+HSQLDB is the default for development and testing.
+
+### In-Memory Configuration
+
+```properties
+vendor@org.sakaiproject.db.api.SqlService=hsqldb
+driverClassName@javax.sql.BaseDataSource=org.hsqldb.jdbcDriver
+hibernate.dialect=org.hibernate.dialect.HSQLDialect
+validationQuery@javax.sql.BaseDataSource=select 1 from INFORMATION_SCHEMA.SYSTEM_USERS
+
+# In-memory (data lost on restart)
+url@javax.sql.BaseDataSource=jdbc:hsqldb:mem:sakai
+
+# No credentials needed for default HSQLDB
+username@javax.sql.BaseDataSource=sa
+password@javax.sql.BaseDataSource=
+```
+
+### File-Based Configuration
+
+```properties
+# Persistent file-based storage
+url@javax.sql.BaseDataSource=jdbc:hsqldb:file:${sakai.home}db/sakai.db
+```
+
+## HikariCP Connection Pool Configuration
+
+Sakai uses HikariCP for connection pooling. Advanced configuration:
+
+```properties
+# Connection pool size (adjust based on load)
+maximumPoolSize@javax.sql.BaseDataSource=50
+minimumIdle@javax.sql.BaseDataSource=5
+
+# Connection timeout (milliseconds)
+connectionTimeout@javax.sql.BaseDataSource=30000
+
+# Idle timeout (milliseconds)
+idleTimeout@javax.sql.BaseDataSource=600000
+
+# Maximum lifetime of connection (milliseconds)
+maxLifetime@javax.sql.BaseDataSource=1800000
+
+# Validation query (empty for JDBC4 drivers)
+validationQuery@javax.sql.BaseDataSource=
+
+# Test connection on borrow
+testOnBorrow@javax.sql.BaseDataSource=false
+```
+
+## Hibernate Configuration
+
+### Schema Management
+
+```properties
+# Auto DDL - Create tables automatically on startup
+# DEFAULT: true
+auto.ddl=true
+
+# Hibernate schema management (when auto.ddl=false)
+# Options: validate | update | create | create-drop
+hibernate.hbm2ddl.auto=validate
+```
+
+<Warning>
+- **Production**: Use `validate` to ensure schema correctness without making changes
+- **Never** use `create` or `create-drop` in production - they destroy data
+- **Development**: Use `update` to automatically apply schema changes
+</Warning>
+
+### SQL Debugging
+
+```properties
+# Show SQL statements in logs
+hibernate.show_sql=false
+
+# Generate statistics
+hibernate.generate_statistics=false
+
+# Log statistics summary
+log.config.count=1
+log.config.1=INFO.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener
+```
+
+## Database Monitoring
+
+### Event Table Size Check
+
+```properties
+# Monitor SAKAI_EVENT table size
+# DEFAULT: true
+events.size.check=true
+```
+
+### Session Table Size Check
+
+```properties
+# Monitor SAKAI_SESSIONS table size
+# DEFAULT: true
+sessions.size.check=true
+```
+
+## Docker Example Configuration
+
+From `docker/tomcat/sakai/sakai.properties`:
+
+```properties
+# MariaDB container configuration
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+url@javax.sql.BaseDataSource=jdbc:mariadb://sakai-mariadb:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+hibernate.dialect=org.hibernate.dialect.MySQL5InnoDBDialect
+validationQuery@javax.sql.BaseDataSource=select 1 from DUAL
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=ironchef
+```
+
+## Performance Tuning
+
+### Database Indexes
+
+Ensure proper indexes are created for frequently queried tables. Sakai's DDL scripts include standard indexes, but you may need additional indexes based on usage patterns.
+
+### Connection Pool Sizing
+
+Rule of thumb for connection pool sizing:
+
+```
+pool_size = ((core_count * 2) + effective_spindle_count)
+```
+
+For most deployments:
+- **Small**: 20-30 connections
+- **Medium**: 40-60 connections  
+- **Large**: 80-100 connections
+
+### Query Optimization
+
+Monitor slow queries and optimize as needed:
+
+```sql
+-- MariaDB/MySQL slow query log
+SET GLOBAL slow_query_log = 'ON';
+SET GLOBAL long_query_time = 2;
+SET GLOBAL slow_query_log_file = '/var/log/mysql/slow-query.log';
+```
+
+## Backup and Recovery
+
+### MariaDB Backup
+
+```bash
+# Full backup
+mysqldump -u sakai -p sakai > sakai_backup_$(date +%Y%m%d).sql
+
+# Compressed backup
+mysqldump -u sakai -p sakai | gzip > sakai_backup_$(date +%Y%m%d).sql.gz
+```
+
+### MariaDB Restore
+
+```bash
+# Restore from backup
+mysql -u sakai -p sakai < sakai_backup_20260304.sql
+
+# Restore from compressed backup
+gunzip < sakai_backup_20260304.sql.gz | mysql -u sakai -p sakai
+```
+
+### Oracle Backup
+
+```bash
+# Export schema
+expdp sakai/password schemas=sakai directory=DATA_PUMP_DIR dumpfile=sakai_$(date +%Y%m%d).dmp logfile=sakai_export.log
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+Check:
+1. Database server is running
+2. Network connectivity (`telnet hostname port`)
+3. Firewall rules allow connection
+4. Database user has remote access privileges
+
+### Too Many Connections
+
+Increase `max_connections` in database server or reduce `maximumPoolSize` in Sakai:
+
+```properties
+maximumPoolSize@javax.sql.BaseDataSource=40
+```
+
+### Character Encoding Issues
+
+Ensure UTF-8 encoding throughout:
+1. Database created with UTF-8 charset
+2. Connection URL includes `characterEncoding=UTF-8`
+3. Tomcat connector uses `URIEncoding="UTF-8"`
+
+### Lock Wait Timeout
+
+Increase transaction timeout:
+
+```sql
+-- MariaDB/MySQL
+SET GLOBAL innodb_lock_wait_timeout = 120;
+```
+
+## Best Practices
+
+1. **Use prepared statements**: Sakai does this by default
+2. **Enable connection validation**: Helps detect stale connections
+3. **Monitor pool metrics**: Watch for pool exhaustion
+4. **Regular backups**: Automate database backups
+5. **Test restores**: Verify backups can be restored successfully
+6. **Update statistics**: Keep database statistics current for optimal query plans
+7. **Separate credentials**: Use `security.properties` for database passwords with restricted permissions
+
+## Related Documentation
+
+- [Sakai Properties Configuration](/deployment/sakai-properties)
+- [Email Configuration](/deployment/email-configuration)

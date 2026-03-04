@@ -1,0 +1,620 @@
+---
+title: CalendarService API
+description: API reference for managing calendars and calendar events in Sakai LMS
+---
+
+## Overview
+
+The `CalendarService` manages calendars and calendar events in Sakai LMS. Each site can have one or more calendars containing events that can be viewed, edited, and shared.
+
+**Package**: `org.sakaiproject.calendar.api`
+
+**Source**: `/calendar/calendar-api/api/src/java/org/sakaiproject/calendar/api/CalendarService.java`
+
+## Constants
+
+### Application Identifiers
+
+```java
+public static final String APPLICATION_ID = "sakai:calendar";
+public static final String REFERENCE_ROOT = "/calendar";
+public static final String REF_TYPE_CALENDAR = "calendar";
+public static final String REF_TYPE_EVENT = "event";
+```
+
+### Event Types
+
+```java
+public static final String EVENT_CREATE_CALENDAR = "calendar.create";
+public static final String EVENT_ADD_CALENDAR = "calendar.new";
+public static final String EVENT_REMOVE_CALENDAR = "calendar.delete";
+public static final String EVENT_MODIFY_CALENDAR = "calendar.revise";
+public static final String EVENT_MODIFY_CALENDAR_EVENT_TITLE = "calendar.revise.event.title";
+public static final String EVENT_MODIFY_CALENDAR_EVENT_TIME = "calendar.revise.event.time";
+public static final String EVENT_MODIFY_CALENDAR_EVENT_TYPE = "calendar.revise.event.type";
+public static final String EVENT_MODIFY_CALENDAR_EVENT_ACCESS = "calendar.revise.event.access";
+```
+
+### Security Permissions
+
+```java
+public static final String AUTH_ADD_CALENDAR = "calendar.new";
+public static final String AUTH_REMOVE_CALENDAR_ANY = "calendar.delete.any";
+public static final String AUTH_REMOVE_CALENDAR_OWN = "calendar.delete.own";
+public static final String AUTH_MODIFY_CALENDAR_ANY = "calendar.revise.any";
+public static final String AUTH_MODIFY_CALENDAR_OWN = "calendar.revise.own";
+public static final String AUTH_IMPORT_CALENDAR = "calendar.import";
+public static final String AUTH_SUBSCRIBE_CALENDAR = "calendar.subscribe";
+public static final String AUTH_READ_CALENDAR = "calendar.read";
+public static final String AUTH_ALL_GROUPS_CALENDAR = "calendar.all.groups";
+```
+
+### View Types
+
+```java
+public static final int DAY_VIEW = 0;
+public static final int LIST_SUBVIEW = 1;
+public static final int WEEK_VIEW = 2;
+public static final int MONTH_VIEW = 3;
+public static final int LIST_VIEW = 5;
+```
+
+### Recurrence Modification Types
+
+```java
+public static final int MOD_NA = 0;      // No intention
+public static final int MOD_THIS = 1;    // Just this one
+public static final int MOD_ALL = 2;     // All occurrences
+public static final int MOD_REST = 3;    // This and subsequent
+public static final int MOD_PRIOR = 4;   // This and prior
+```
+
+## Calendar Management
+
+### addCalendar
+
+Create a new calendar.
+
+```java
+public CalendarEdit addCalendar(String ref) 
+    throws IdUsedException, IdInvalidException, PermissionException;
+```
+
+<ParamField path="ref" type="String" required>
+  The new calendar reference
+</ParamField>
+
+**Returns**: The newly created `CalendarEdit` object
+
+**Throws**:
+- `IdUsedException` - If the reference is already in use
+- `IdInvalidException` - If the reference contains invalid characters
+- `PermissionException` - If the user lacks permission to add calendars
+
+**Note**: You must call `commitCalendar()` to finalize or `cancelCalendar()` to discard
+
+**Example**:
+```java
+String calendarRef = calendarService.calendarReference(siteId, "main");
+try {
+    CalendarEdit calendar = calendarService.addCalendar(calendarRef);
+    calendar.getPropertiesEdit().addProperty(
+        ResourceProperties.PROP_DISPLAY_NAME, 
+        "Site Calendar"
+    );
+    calendarService.commitCalendar(calendar);
+} catch (IdUsedException e) {
+    // Calendar already exists
+}
+```
+
+### getCalendar
+
+Retrieve a specific calendar.
+
+```java
+public Calendar getCalendar(String ref) 
+    throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: The `Calendar` with the specified reference
+
+**Throws**:
+- `IdUnusedException` - If the calendar doesn't exist
+- `PermissionException` - If the user lacks permissions
+
+**Example**:
+```java
+String calendarRef = calendarService.calendarReference(siteId, "main");
+try {
+    Calendar calendar = calendarService.getCalendar(calendarRef);
+    System.out.println("Calendar: " + calendar.getDisplayName());
+} catch (IdUnusedException e) {
+    System.err.println("Calendar not found");
+}
+```
+
+### editCalendar
+
+Get a locked calendar for editing.
+
+```java
+public CalendarEdit editCalendar(String ref) 
+    throws IdUnusedException, PermissionException, InUseException;
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: A `CalendarEdit` object for editing
+
+**Throws**:
+- `IdUnusedException` - If the calendar doesn't exist
+- `PermissionException` - If the user lacks permission
+- `InUseException` - If the calendar is locked by another user
+
+**Note**: Must call `commitCalendar()`, `cancelCalendar()`, or `removeCalendar()` when done
+
+### commitCalendar
+
+Commit changes to a calendar and release the lock.
+
+```java
+public void commitCalendar(CalendarEdit edit);
+```
+
+<ParamField path="edit" type="CalendarEdit" required>
+  The calendar edit object to commit
+</ParamField>
+
+**Note**: The `CalendarEdit` is disabled after this call
+
+### cancelCalendar
+
+Cancel changes to a calendar and release the lock.
+
+```java
+public void cancelCalendar(CalendarEdit edit);
+```
+
+<ParamField path="edit" type="CalendarEdit" required>
+  The calendar edit object to cancel
+</ParamField>
+
+### removeCalendar
+
+Remove a calendar that is locked for edit.
+
+```java
+public void removeCalendar(CalendarEdit edit) throws PermissionException;
+```
+
+<ParamField path="edit" type="CalendarEdit" required>
+  The calendar to remove
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+## Event Management
+
+### getEvents
+
+Merge events from multiple calendars within a time range.
+
+```java
+public CalendarEventVector getEvents(
+    List references, 
+    TimeRange range
+);
+```
+
+<ParamField path="references" type="List" required>
+  List of calendar references
+</ParamField>
+
+<ParamField path="range" type="TimeRange">
+  Time period to select events (null = one year before and after)
+</ParamField>
+
+**Returns**: `CalendarEventVector` with the union of all events
+
+**Example**:
+```java
+List<String> calendarRefs = Arrays.asList(
+    calendarService.calendarReference(siteId, "main")
+);
+
+TimeRange thisWeek = timeService.newTimeRange(
+    timeService.newTime(),
+    7 * 24 * 60 * 60 * 1000L
+);
+
+CalendarEventVector events = calendarService.getEvents(calendarRefs, thisWeek);
+for (Object obj : events) {
+    CalendarEvent event = (CalendarEvent) obj;
+    System.out.println(event.getDisplayName() + " at " + event.getRange());
+}
+```
+
+### getFilteredEvents
+
+Retrieve filtered events for the current user.
+
+```java
+public List<CalendarEvent> getFilteredEvents(
+    Map<EventFilterKey, Object> options
+);
+```
+
+<ParamField path="options" type="Map<EventFilterKey, Object>" required>
+  Filter options (supports "limit" and "siteId")
+</ParamField>
+
+**Returns**: List of `CalendarEvent` objects matching the filter
+
+**Example**:
+```java
+Map<EventFilterKey, Object> options = new HashMap<>();
+options.put(EventFilterKey.SITE_ID, siteId);
+options.put(EventFilterKey.LIMIT, 10);
+
+List<CalendarEvent> events = calendarService.getFilteredEvents(options);
+```
+
+## Recurrence
+
+### newRecurrence
+
+Create a new recurrence rule.
+
+```java
+public RecurrenceRule newRecurrence(String frequency);
+public RecurrenceRule newRecurrence(String frequency, int interval);
+public RecurrenceRule newRecurrence(String frequency, int interval, int count);
+public RecurrenceRule newRecurrence(String frequency, int interval, Time until);
+```
+
+<ParamField path="frequency" type="String" required>
+  The frequency description ("DAILY", "WEEKLY", "MONTHLY", "YEARLY")
+</ParamField>
+
+<ParamField path="interval" type="int">
+  The recurrence interval
+</ParamField>
+
+<ParamField path="count" type="int">
+  Number of occurrences
+</ParamField>
+
+<ParamField path="until" type="Time">
+  Time after which recurrences stop
+</ParamField>
+
+**Returns**: A new `RecurrenceRule` object
+
+**Example**:
+```java
+// Every week for 10 occurrences
+RecurrenceRule weeklyRule = calendarService.newRecurrence("WEEKLY", 1, 10);
+
+// Daily until a specific date
+Time endDate = timeService.newTime(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000);
+RecurrenceRule dailyRule = calendarService.newRecurrence("DAILY", 1, endDate);
+```
+
+## Reference Methods
+
+### calendarReference
+
+Get the internal reference for a calendar.
+
+```java
+public String calendarReference(String context, String id);
+```
+
+<ParamField path="context" type="String" required>
+  The context (site ID)
+</ParamField>
+
+<ParamField path="id" type="String" required>
+  The calendar ID
+</ParamField>
+
+**Returns**: The internal reference string
+
+### eventReference
+
+Get the internal reference for an event.
+
+```java
+public String eventReference(String context, String calendarId, String id);
+```
+
+<ParamField path="context" type="String" required>
+  The context (site ID)
+</ParamField>
+
+<ParamField path="calendarId" type="String" required>
+  The calendar ID
+</ParamField>
+
+<ParamField path="id" type="String" required>
+  The event ID
+</ParamField>
+
+**Returns**: The internal reference string for the event
+
+### calendarICalReference
+
+Get the iCal reference for a calendar.
+
+```java
+public String calendarICalReference(Reference ref);
+```
+
+<ParamField path="ref" type="Reference" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: The iCal reference string
+
+### calendarPdfReference
+
+Get the PDF reference for a calendar.
+
+```java
+public String calendarPdfReference(
+    String context,
+    String id,
+    int scheduleType,
+    String timeRangeString,
+    String userName,
+    boolean reverseOrder
+);
+```
+
+<ParamField path="context" type="String" required>
+  The context (site ID)
+</ParamField>
+
+<ParamField path="id" type="String" required>
+  The calendar ID
+</ParamField>
+
+<ParamField path="scheduleType" type="int" required>
+  The view type (DAY_VIEW, WEEK_VIEW, etc.)
+</ParamField>
+
+<ParamField path="timeRangeString" type="String" required>
+  Time range for the PDF
+</ParamField>
+
+<ParamField path="userName" type="String" required>
+  The user name for the PDF
+</ParamField>
+
+<ParamField path="reverseOrder" type="boolean" required>
+  Whether to reverse event order
+</ParamField>
+
+**Returns**: The PDF reference string
+
+## Permission Checking
+
+### allowGetCalendar
+
+Check if the user can get a calendar.
+
+```java
+public boolean allowGetCalendar(String ref);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: `true` if the user is allowed to get the calendar
+
+### allowEditCalendar
+
+Check if the user can edit a calendar.
+
+```java
+public boolean allowEditCalendar(String ref);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: `true` if the user can edit the calendar
+
+### allowImportCalendar
+
+Check if the user can import calendar events.
+
+```java
+public boolean allowImportCalendar(String ref);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: `true` if the user can import events
+
+### allowSubscribeCalendar
+
+Check if the user can subscribe to external calendars.
+
+```java
+public boolean allowSubscribeCalendar(String ref);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: `true` if the user can subscribe to external calendars
+
+## Export and Subscription
+
+### getExportEnabled
+
+Check if public iCal export is enabled for a calendar.
+
+```java
+public boolean getExportEnabled(String ref);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+**Returns**: `true` if export is enabled
+
+### setExportEnabled
+
+Enable or disable public iCal export for a calendar.
+
+```java
+public void setExportEnabled(String ref, boolean enable);
+```
+
+<ParamField path="ref" type="String" required>
+  The calendar reference
+</ParamField>
+
+<ParamField path="enable" type="boolean" required>
+  True to enable, false to disable
+</ParamField>
+
+## Utility Methods
+
+### getCalendarReferences
+
+Get all calendar references for a site.
+
+```java
+public List<String> getCalendarReferences(String siteId);
+```
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: List of calendar reference strings
+
+### isCalendarToolInitialized
+
+Check if the calendar tool has been initialized for a site.
+
+```java
+public boolean isCalendarToolInitialized(String siteId);
+```
+
+<ParamField path="siteId" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: `true` if the calendar has been created
+
+### getUpcomingDaysLimit
+
+Get the limit on upcoming days for filtered events.
+
+```java
+public int getUpcomingDaysLimit();
+```
+
+**Returns**: The number of days (default 60, configurable via `calendar.upcoming_days_limit`)
+
+## Complete Example
+
+```java
+import org.sakaiproject.calendar.api.*;
+import org.sakaiproject.time.api.*;
+import org.sakaiproject.entity.api.ResourceProperties;
+
+public class CalendarExample {
+    
+    private CalendarService calendarService;
+    private TimeService timeService;
+    
+    public void createEventExample(String siteId) {
+        try {
+            // Get or create calendar
+            String calendarRef = calendarService.calendarReference(siteId, "main");
+            Calendar calendar;
+            
+            try {
+                calendar = calendarService.getCalendar(calendarRef);
+            } catch (IdUnusedException e) {
+                CalendarEdit calEdit = calendarService.addCalendar(calendarRef);
+                calEdit.getPropertiesEdit().addProperty(
+                    ResourceProperties.PROP_DISPLAY_NAME, 
+                    "Site Calendar"
+                );
+                calendarService.commitCalendar(calEdit);
+                calendar = calendarService.getCalendar(calendarRef);
+            }
+            
+            // Edit calendar to add event
+            CalendarEdit calEdit = calendarService.editCalendar(calendarRef);
+            
+            // Create event
+            CalendarEventEdit event = calEdit.addEvent();
+            event.setDisplayName("Team Meeting");
+            event.setDescription("Discuss project progress");
+            event.setType("Meeting");
+            
+            // Set time range (1 hour from now)
+            Time start = timeService.newTime();
+            Time end = timeService.newTime(start.getTime() + 60 * 60 * 1000);
+            TimeRange range = timeService.newTimeRange(start, end);
+            event.setRange(range);
+            
+            // Optional: Make it recurring (weekly for 10 weeks)
+            RecurrenceRule rule = calendarService.newRecurrence("WEEKLY", 1, 10);
+            event.setRecurrenceRule(rule);
+            
+            // Commit changes
+            calendarService.commitCalendar(calEdit);
+            
+            System.out.println("Event created: " + event.getDisplayName());
+            
+        } catch (Exception e) {
+            System.err.println("Error creating event: " + e.getMessage());
+        }
+    }
+    
+    public void listUpcomingEvents(String siteId) {
+        String calendarRef = calendarService.calendarReference(siteId, "main");
+        List<String> refs = Arrays.asList(calendarRef);
+        
+        // Get events for next 7 days
+        Time now = timeService.newTime();
+        Time weekFromNow = timeService.newTime(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        TimeRange range = timeService.newTimeRange(now, weekFromNow);
+        
+        CalendarEventVector events = calendarService.getEvents(refs, range);
+        
+        System.out.println("Upcoming events:");
+        for (Object obj : events) {
+            CalendarEvent event = (CalendarEvent) obj;
+            System.out.println("- " + event.getDisplayName() + 
+                             " (" + event.getRange().firstTime() + ")");
+        }
+    }
+}
+```
+
+## See Also
+
+- [Time API](/api/kernel/time) - Time and TimeRange objects
+- [Entity API](/api/kernel/entity) - Entity and reference handling

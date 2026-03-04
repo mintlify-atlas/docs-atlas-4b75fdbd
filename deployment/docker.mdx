@@ -1,0 +1,375 @@
+---
+title: Docker Deployment
+description: Deploy Sakai LMS using Docker containers
+---
+
+Docker provides an easy way to build and deploy Sakai in containerized environments.
+
+## Prerequisites
+
+- Docker Engine installed
+- 4GB+ RAM allocated to Docker
+- 20GB+ disk space available
+
+See [System Requirements](/deployment/requirements) for details.
+
+## Quick Docker Installation (Linux)
+
+Install Docker on a new Linux server:
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+For other platforms, see [Docker installation docs](https://docs.docker.com/get-docker/).
+
+## Building Sakai Docker Image
+
+Sakai provides a multi-stage Dockerfile that builds from source and creates an optimized production image.
+
+### Build from Source (Bash)
+
+Navigate to the docker directory and build:
+
+```bash
+cd docker
+
+docker build --build-arg GIT_CACHEBUST=$(date +%s) \
+  --build-arg release=master -t sakai \
+  -f ./Dockerfile.source .
+```
+
+### Build from Source (PowerShell)
+
+For Windows PowerShell:
+
+```powershell
+cd docker
+
+docker build `
+  --build-arg GIT_CACHEBUST=$(Get-Date -UFormat %s) `
+  --build-arg release=master -t sakai `
+  -f .\Dockerfile.source .
+```
+
+### Build Arguments
+
+**Release/Branch**: Specify which branch or tag to build:
+```bash
+docker build --build-arg release=25.1 -t sakai:25.1 -f ./Dockerfile.source .
+```
+
+**Custom Repository**: Build from a fork or custom repository:
+```bash
+docker build --build-arg GIT_CACHEBUST=$(date +%s) \
+  --build-arg repository=https://github.com/your-fork/sakai.git \
+  --build-arg release=custom-branch -t sakai-custom \
+  -f ./Dockerfile.source .
+```
+
+### Verify the Image
+
+Once the build completes, verify the image:
+
+```bash
+docker image ls sakai
+```
+
+Output:
+```
+REPOSITORY    TAG       IMAGE ID       CREATED          SIZE
+sakai         latest    ac16fc4db9dd   1 minute ago     1.86GB
+```
+
+## Multi-Stage Build Process
+
+The Dockerfile uses a multi-stage build for optimization:
+
+### Stage 1: Build
+
+- Base: `maven:3.9-eclipse-temurin-17`
+- Clones Sakai source code
+- Runs Maven build with optimizations
+- Creates deployment artifacts
+
+### Stage 2: Runtime
+
+- Base: `tomcat:9-jdk17-temurin`
+- Copies only necessary artifacts from build stage
+- Configures Tomcat
+- Results in smaller final image (~1.86GB vs 3GB+)
+
+## Running Sakai with Docker
+
+### Step 1: Start Database Container
+
+Sakai requires a database. Start MariaDB:
+
+```bash
+docker run -p 127.0.0.1:53306:3306 -d --name="sakai-mariadb" \
+  -e "MARIADB_ROOT_PASSWORD=sakairoot" \
+  -v "./mysql/scripts:/docker-entrypoint-initdb.d" \
+  -d mariadb:10 --lower-case-table-names=1
+```
+
+For PowerShell:
+```powershell
+docker run -p 127.0.0.1:53306:3306 -d --name="sakai-mariadb" `
+  -e "MARIADB_ROOT_PASSWORD=sakairoot" `
+  -v "./mysql/scripts:/docker-entrypoint-initdb.d" `
+  -d mariadb:10 --lower-case-table-names=1
+```
+
+Or restart if already created:
+```bash
+docker start sakai-mariadb
+```
+
+### Step 2: Start Sakai Container
+
+Run Sakai and link to the database:
+
+```bash
+docker run --rm -p 8080:8080 --name sakai-tomcat --link sakai-mariadb sakai
+```
+
+For a custom build:
+```bash
+docker run --rm -p 8080:8080 --name sakai-tomcat --link sakai-mariadb sakai:25.1
+```
+
+### Step 3: Access Sakai
+
+Open your browser to:
+```
+http://localhost:8080/portal
+```
+
+<Warning>
+The first startup takes several minutes as the database schema is initialized.
+</Warning>
+
+## Docker Compose Setup
+
+For easier multi-container management, use Docker Compose:
+
+```yaml
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:10
+    container_name: sakai-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: sakairoot
+      MARIADB_DATABASE: sakai
+      MARIADB_USER: sakai
+      MARIADB_PASSWORD: ironchef
+    command: --lower-case-table-names=1
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./mysql/scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:53306:3306"
+
+  sakai:
+    image: sakai:latest
+    container_name: sakai-tomcat
+    depends_on:
+      - mariadb
+    ports:
+      - "8080:8080"
+    environment:
+      - CATALINA_OPTS=-Xms2g -Xmx2g
+    links:
+      - mariadb:sakai-mariadb
+
+volumes:
+  mariadb-data:
+```
+
+Start the stack:
+```bash
+docker-compose up -d
+```
+
+## Configuration
+
+### Database Configuration
+
+The default `sakai.properties` in the Docker image is configured for:
+- **Host**: `sakai-mariadb` (container name)
+- **Database**: `sakai`
+- **Username**: `sakai`
+- **Password**: `ironchef`
+
+To customize, mount a custom properties file:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -v /path/to/sakai.properties:/usr/local/tomcat/sakai/sakai.properties \
+  --link sakai-mariadb sakai
+```
+
+### Memory Settings
+
+The Docker image defaults to:
+- Heap: `-Xms2g -Xmx2g`
+- New Generation: `-XX:NewSize=500m -XX:MaxNewSize=500m`
+- Garbage Collector: G1GC
+
+Override with environment variables:
+```bash
+docker run --rm -p 8080:8080 \
+  -e "CATALINA_OPTS=-Xms4g -Xmx4g" \
+  --link sakai-mariadb sakai
+```
+
+### Timezone
+
+Default timezone is `US/Eastern`. Change it:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e "CATALINA_OPTS=-Duser.timezone=Europe/London" \
+  --link sakai-mariadb sakai
+```
+
+## Persistent Storage
+
+For production, persist Sakai data using volumes:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -v sakai-content:/usr/local/tomcat/sakai \
+  -v sakai-components:/usr/local/tomcat/components \
+  --link sakai-mariadb sakai
+```
+
+## Build Optimization
+
+### Maven Build Options
+
+The Dockerfile uses optimized Maven settings:
+
+```dockerfile
+ENV MAVEN_OPTS="-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+ENV JAVA_OPTS="-XX:ReservedCodeCacheSize=512m"
+```
+
+Build command:
+```dockerfile
+mvn clean install --no-transfer-progress -T 1C sakai:deploy-exploded \
+  -Dmaven.test.skip=true -Dsakai.skip.webcomponents.tests=true
+```
+
+### Cache Busting
+
+The `GIT_CACHEBUST` argument forces Git clone to bypass Docker layer cache:
+
+```bash
+docker build --build-arg GIT_CACHEBUST=$(date +%s) ...
+```
+
+This ensures you always get the latest code from the specified branch.
+
+## Container Management
+
+### View Running Containers
+
+```bash
+docker ps
+```
+
+### View Logs
+
+```bash
+docker logs -f sakai-tomcat
+```
+
+### Stop Containers
+
+```bash
+docker stop sakai-tomcat sakai-mariadb
+```
+
+### Remove Containers
+
+```bash
+docker rm sakai-tomcat sakai-mariadb
+```
+
+### Remove Images
+
+```bash
+docker rmi sakai:latest
+```
+
+## Troubleshooting
+
+### Build Failures
+
+**Maven out of memory**:
+The Dockerfile already sets optimal Maven options, but if issues persist:
+```dockerfile
+ENV MAVEN_OPTS="-Xmx4g -XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+```
+
+**Git clone fails**:
+- Check network connectivity
+- Verify repository URL
+- Try a different branch/tag
+
+### Runtime Issues
+
+**Container exits immediately**:
+```bash
+docker logs sakai-tomcat
+```
+Check for startup errors in the logs.
+
+**Cannot connect to database**:
+- Verify MariaDB container is running: `docker ps`
+- Check container linking: `--link sakai-mariadb`
+- Test database connectivity from Sakai container
+
+**Port already in use**:
+```bash
+docker run --rm -p 9090:8080 --name sakai-tomcat --link sakai-mariadb sakai
+```
+Use a different host port (9090 instead of 8080).
+
+## Production Deployment
+
+### Best Practices
+
+1. **Use specific tags**: `sakai:25.1` instead of `sakai:latest`
+2. **Persistent volumes**: Mount volumes for data persistence
+3. **Environment variables**: Externalize configuration
+4. **Resource limits**: Set CPU and memory limits
+5. **Health checks**: Implement container health checks
+6. **Secrets management**: Use Docker secrets for passwords
+
+### Example Production Setup
+
+```bash
+docker run -d \
+  --name sakai-tomcat \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -e "CATALINA_OPTS=-Xms4g -Xmx4g" \
+  -v sakai-content:/usr/local/tomcat/sakai \
+  -v /path/to/sakai.properties:/usr/local/tomcat/sakai/sakai.properties:ro \
+  --memory=6g \
+  --cpus=4 \
+  --link sakai-mariadb \
+  sakai:25.1
+```
+
+## Next Steps
+
+- Review [Tomcat Configuration](/deployment/tomcat-configuration)
+- Explore Docker [networking](https://docs.docker.com/network/)
+- Set up [Docker Swarm](https://docs.docker.com/engine/swarm/) for orchestration
+- Consider [Kubernetes](https://kubernetes.io/) for large-scale deployments

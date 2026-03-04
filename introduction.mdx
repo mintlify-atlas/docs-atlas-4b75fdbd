@@ -1,0 +1,155 @@
+---
+title: Sakai LMS - Open-Source Learning Management System
+description: Sakai is a flexible, community-driven learning management system designed for teaching, research, and collaboration in higher education.
+---
+
+# Welcome to Sakai LMS
+
+Sakai is a comprehensive, open-source learning management system built by educators for educators. Developed by the Apereo Foundation and used by millions worldwide, Sakai provides a powerful platform for teaching, learning, research, and collaboration.
+
+## What is Sakai?
+
+Sakai CLE (Collaboration and Learning Environment) is a Java-based LMS that offers:
+
+- **Complete Course Management** - Create and manage courses with assignments, gradebooks, assessments, and content
+- **Collaboration Tools** - Forums, chat, announcements, calendars, and messaging
+- **Flexible Architecture** - Modular tool-based design built on a robust kernel
+- **Open Source** - Licensed under Educational Community License 2.0 (ECL-2.0)
+- **Global Reach** - Supports 20+ languages with complete internationalization
+
+<Note>
+Sakai is currently at version 25.1, with active community support and regular releases. The project has been in development since 2003 with contributions from institutions worldwide.
+</Note>
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get Sakai up and running quickly with our step-by-step guide
+  </Card>
+  <Card title="Installation" icon="server" href="/installation">
+    Detailed installation instructions for production deployments
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand Sakai's modular architecture and core services
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Join the community and contribute to Sakai development
+  </Card>
+</CardGroup>
+
+## Core Features
+
+### Teaching & Learning Tools
+
+**Assignments** - Create, collect, and grade student submissions with support for inline grading, peer review, and multiple submission types.
+
+**Gradebook NG** - Modern gradebook with flexible grading schemes, weighted categories, and grade import/export capabilities.
+
+**Tests & Quizzes (Samigo)** - Build assessments with multiple question types, randomization, timed tests, and automatic grading.
+
+**Lessons** - Create interactive learning modules with embedded content, assessments, and branching paths.
+
+### Collaboration & Communication
+
+**Forums & Conversations** - Threaded discussions with moderation, grading, and rich media support.
+
+**Calendar** - Shared calendars with event scheduling, reminders, and iCal integration.
+
+**Announcements** - Site-wide notifications with email delivery and RSS feeds.
+
+**Chat** - Real-time messaging for immediate communication.
+
+### Content Management
+
+**Resources** - Robust file storage with version control, WebDAV access, and cloud storage integration (Google Drive, OneDrive).
+
+**Content Review** - Plagiarism detection integrations with Turnitin, Compilatio, and Urkund.
+
+**Media Gallery** - Upload and manage video content with streaming support.
+
+## Technical Stack
+
+<CardGroup cols={2}>
+  <Card title="Backend" icon="java">
+    - Java 17
+    - Apache Tomcat 9
+    - Spring Framework
+    - Hibernate ORM
+  </Card>
+  <Card title="Frontend" icon="browser">
+    - Web Components (Lit)
+    - Bootstrap 5.2
+    - Modern JavaScript (ES2022+)
+    - ThymeLeaf Templates
+  </Card>
+  <Card title="Database" icon="database">
+    - MySQL/MariaDB
+    - Oracle (supported)
+    - SQL Server (supported)
+  </Card>
+  <Card title="Build Tools" icon="screwdriver-wrench">
+    - Maven 3.9+
+    - npm for frontend
+    - Docker support
+  </Card>
+</CardGroup>
+
+## Active Development
+
+Sakai is actively maintained with multiple supported versions:
+
+- **Sakai 25.2** - Current development release (Q2 2026)
+- **Sakai 25.1** - Latest stable release
+- **Sakai 23.4** - Long-term support version
+
+<Warning>
+Older versions (22.x, 21.x, 20.x) receive security updates only. Plan to upgrade to actively supported versions.
+</Warning>
+
+## Community & Support
+
+Sakai is built by a global community of educators, developers, and institutions.
+
+**Get Help**
+- Developer mailing list: `sakai-dev+subscribe@apereo.org`
+- Slack: [apereo.slack.com](https://apereo.slack.com/signup)
+- JIRA bug tracker: [jira.sakaiproject.org](https://jira.sakaiproject.org/)
+
+**Contributing**
+- All contributions require an Apereo Contributor License Agreement (CLA)
+- Code follows strict accessibility (WCAG 2.0) and internationalization standards
+- Pull requests reviewed by community members
+
+## System Requirements
+
+<Card title="Minimum Requirements" icon="list-check">
+  - **Java**: OpenJDK 17 (Eclipse Temurin recommended)
+  - **Application Server**: Apache Tomcat 9.x
+  - **Database**: MySQL 8.0+ or MariaDB 10.5+
+  - **Memory**: 4GB RAM minimum, 8GB+ recommended
+  - **Storage**: 20GB+ for application and data
+</Card>
+
+## Next Steps
+
+<Steps>
+  <Step title="Try Sakai">
+    Test Sakai on the [nightly servers](http://nightly2.sakaiproject.org) to explore features
+  </Step>
+  <Step title="Install Locally">
+    Follow the [Quick Start](/quickstart) to build and run Sakai on your machine
+  </Step>
+  <Step title="Production Deployment">
+    Review the [Installation Guide](/installation) for production server setup
+  </Step>
+  <Step title="Customize">
+    Learn about skinning, configuration, and extending Sakai
+  </Step>
+</Steps>
+
+## License
+
+Sakai is licensed under the **Educational Community License version 2.0 (ECL-2.0)**, an OSI-approved open-source license designed for educational software.
+
+The project is governed by the [Apereo Foundation](https://www.apereo.org), ensuring long-term sustainability and community ownership.

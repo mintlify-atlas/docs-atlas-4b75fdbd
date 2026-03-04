@@ -1,0 +1,445 @@
+---
+title: Email Configuration
+description: Configure SMTP for incoming and outgoing email in Sakai LMS
+---
+
+## Overview
+
+Sakai supports both incoming and outgoing email functionality. This guide covers SMTP server configuration, email service settings, and troubleshooting common email issues.
+
+## Outgoing Email Configuration
+
+Configure Sakai to send emails through an SMTP server.
+
+### Basic SMTP Settings
+
+```properties
+# SMTP server hostname for outgoing email
+smtp@org.sakaiproject.email.api.EmailService=smtp.institution.edu
+
+# SMTP port (standard ports: 25, 587 for TLS, 465 for SSL)
+# DEFAULT: 25
+smtpPort@org.sakaiproject.email.api.EmailService=587
+
+# From address for outgoing email
+# DEFAULT: no-reply@${serverName}
+smtpFrom@org.sakaiproject.email.api.EmailService=noreply@institution.edu
+
+# From address used by tools (overrides smtpFrom if set)
+# DEFAULT: uses smtpFrom value
+setup.request=sakai@institution.edu
+```
+
+### SMTP Authentication
+
+If your SMTP server requires authentication:
+
+```properties
+# SMTP username
+smtpUser@org.sakaiproject.email.api.EmailService=sakai-smtp-user
+
+# SMTP password
+smtpPassword@org.sakaiproject.email.api.EmailService=your_smtp_password
+```
+
+<Warning>
+Store SMTP credentials in `security.properties` with restricted file permissions (chmod 600) rather than in `sakai.properties` to protect sensitive information.
+</Warning>
+
+### SSL/TLS Configuration
+
+```properties
+# Enable SSL/TLS for SMTP connection
+# DEFAULT: false
+smtpUseSSL@org.sakaiproject.email.api.EmailService=true
+```
+
+Typical port configurations:
+- Port 25: Unencrypted (legacy, not recommended)
+- Port 587: STARTTLS (recommended)
+- Port 465: SSL/TLS (implicit encryption)
+
+### Test Mode
+
+For development and testing:
+
+```properties
+# Test mode - emails written to log instead of sent
+# DEFAULT: false
+testMode@org.sakaiproject.email.api.EmailService=true
+```
+
+From `docker/tomcat/sakai/sakai.properties`:
+```properties
+# Enable test mode for development
+testMode@org.sakaiproject.email.api.EmailService=true
+```
+
+### Debug Mode
+
+```properties
+# Enable SMTP debugging output in logs
+# DEFAULT: false
+smtpDebug@org.sakaiproject.email.api.EmailService=true
+```
+
+## Incoming Email Configuration
+
+Enable Sakai to receive email for features like email replies to announcements and forums.
+
+### Enable SMTP Service
+
+```properties
+# Enable incoming SMTP service
+# DEFAULT: false
+smtp.enabled=true
+
+# SMTP port for incoming email
+# Recommend 8025 with port forwarding from 25
+# DEFAULT: 25
+smtp.port=8025
+```
+
+<Warning>
+Running Sakai's SMTP service on port 25 requires root privileges. It's recommended to run on port 8025 and use your system's mail server (postfix, sendmail) to forward emails to Sakai.
+</Warning>
+
+### DNS Configuration
+
+From `docker/tomcat/sakai/sakai.properties`:
+
+```properties
+# DNS addresses for SMTP service (Sakai 10 and earlier)
+smtp.dns.1=8.8.8.8
+smtp.dns.2=8.8.4.4
+```
+
+### Mail Support Contact
+
+```properties
+# Support email address for rejection messages
+mail.support=support@institution.edu
+
+# Support name for rejection messages
+mail.support.name=Sakai Support Team
+```
+
+## Email Configuration Examples
+
+### Gmail/Google Workspace
+
+```properties
+# Gmail SMTP settings
+smtp@org.sakaiproject.email.api.EmailService=smtp.gmail.com
+smtpPort@org.sakaiproject.email.api.EmailService=587
+smtpFrom@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+smtpUser@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+smtpPassword@org.sakaiproject.email.api.EmailService=app_specific_password
+smtpUseSSL@org.sakaiproject.email.api.EmailService=true
+```
+
+<Warning>
+Gmail requires an app-specific password when 2FA is enabled. Generate one at https://myaccount.google.com/apppasswords
+</Warning>
+
+### Microsoft 365 / Office 365
+
+```properties
+# Office 365 SMTP settings
+smtp@org.sakaiproject.email.api.EmailService=smtp.office365.com
+smtpPort@org.sakaiproject.email.api.EmailService=587
+smtpFrom@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+smtpUser@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+smtpPassword@org.sakaiproject.email.api.EmailService=your_password
+smtpUseSSL@org.sakaiproject.email.api.EmailService=true
+```
+
+### Amazon SES
+
+```properties
+# Amazon SES SMTP settings
+smtp@org.sakaiproject.email.api.EmailService=email-smtp.us-east-1.amazonaws.com
+smtpPort@org.sakaiproject.email.api.EmailService=587
+smtpFrom@org.sakaiproject.email.api.EmailService=sakai@verified-domain.edu
+smtpUser@org.sakaiproject.email.api.EmailService=AKIAIOSFODNN7EXAMPLE
+smtpPassword@org.sakaiproject.email.api.EmailService=your_ses_smtp_password
+smtpUseSSL@org.sakaiproject.email.api.EmailService=true
+```
+
+### SendGrid
+
+```properties
+# SendGrid SMTP settings
+smtp@org.sakaiproject.email.api.EmailService=smtp.sendgrid.net
+smtpPort@org.sakaiproject.email.api.EmailService=587
+smtpFrom@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+smtpUser@org.sakaiproject.email.api.EmailService=apikey
+smtpPassword@org.sakaiproject.email.api.EmailService=SG.your_sendgrid_api_key
+smtpUseSSL@org.sakaiproject.email.api.EmailService=true
+```
+
+### Local Postfix/Sendmail
+
+```properties
+# Local mail server (no authentication)
+smtp@org.sakaiproject.email.api.EmailService=localhost
+smtpPort@org.sakaiproject.email.api.EmailService=25
+smtpFrom@org.sakaiproject.email.api.EmailService=sakai@institution.edu
+# No username/password needed for local relay
+```
+
+## Email Digest Configuration
+
+Control how email digests are processed:
+
+```properties
+# Skip email digests for debugging
+# DEFAULT: false
+digest.email.bypass.for.debug=false
+
+# How often to check for digests to send (seconds)
+# DEFAULT: 3600 (1 hour)
+email.digest.check.period=3600
+
+# Delay before first digest check after startup (seconds)
+# DEFAULT: 300 (5 minutes)
+email.digest.start.delay=300
+```
+
+## Portal Email Settings
+
+```properties
+# Email address for portal errors and bug reports
+portal.error.email=bugs@institution.edu
+```
+
+## User Email Validation
+
+```properties
+# Comma-separated list of forbidden domains for guest accounts
+# Prevents guest account creation for users with institutional emails
+# DEFAULT: null (all domains valid)
+invalidEmailInIdAccountString=institution.edu,university.edu
+```
+
+## Email Templates
+
+Email templates are localized and stored in resource bundles throughout the codebase:
+
+- **Assignments**: `assignment/bundles/src/bundle/email*.properties`
+- **Announcements**: `announcement/bundles/src/bundle/email*.properties`  
+- **Forums**: `msgcntr/bundles/src/bundle/email*.properties`
+- **Sign-up**: `signup/impl/src/main/bundle/emailMessage*.properties`
+
+Example from signup tool email template:
+
+```properties
+# From signup/impl/src/main/bundle/emailMessage.properties
+email.exception=Email was not sent: an error has occurred.
+```
+
+## Testing Email Configuration
+
+### Enable Test Mode
+
+```properties
+# Log emails instead of sending
+testMode@org.sakaiproject.email.api.EmailService=true
+```
+
+Emails will appear in the logs like:
+
+```
+INFO: [EmailService] Email would be sent to: user@example.com
+INFO: [EmailService] Subject: Assignment Submitted
+INFO: [EmailService] Body: Your assignment has been submitted...
+```
+
+### Enable Debug Logging
+
+```properties
+# Enable SMTP protocol debugging
+smtpDebug@org.sakaiproject.email.api.EmailService=true
+```
+
+### Test Email Sending
+
+1. Navigate to a tool that sends email (e.g., Announcements)
+2. Create an announcement with email notification enabled
+3. Check Tomcat logs for SMTP activity
+4. Verify email delivery to recipients
+
+## Troubleshooting
+
+### Emails Not Sending
+
+**Check Configuration:**
+
+```bash
+# Verify SMTP settings in logs at startup
+grep "smtp@org.sakaiproject.email.api.EmailService" $CATALINA_HOME/logs/catalina.out
+```
+
+**Test SMTP Connectivity:**
+
+```bash
+# Test connection to SMTP server
+telnet smtp.institution.edu 587
+
+# Or using openssl for SSL/TLS
+openssl s_client -connect smtp.institution.edu:587 -starttls smtp
+```
+
+**Enable Debug Mode:**
+
+```properties
+smtpDebug@org.sakaiproject.email.api.EmailService=true
+```
+
+### Authentication Failures
+
+**Common Causes:**
+1. Incorrect username/password
+2. App-specific password required (Gmail, Office 365)
+3. Less secure app access disabled (Gmail)
+4. IP address not whitelisted
+
+**Check Logs:**
+
+```bash
+tail -f $CATALINA_HOME/logs/catalina.out | grep -i "email\|smtp"
+```
+
+### Emails Going to Spam
+
+**Configure SPF Record:**
+
+```dns
+; Add to DNS
+institution.edu. IN TXT "v=spf1 ip4:192.0.2.1 include:_spf.google.com ~all"
+```
+
+**Configure DKIM:**
+
+Work with your email provider to set up DKIM signing.
+
+**Configure DMARC:**
+
+```dns
+_dmarc.institution.edu. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@institution.edu"
+```
+
+**Use Proper From Address:**
+
+Ensure `smtpFrom` matches a valid, verified domain:
+
+```properties
+smtpFrom@org.sakaiproject.email.api.EmailService=noreply@institution.edu
+```
+
+### Connection Timeout
+
+**Increase Timeout:**
+
+Check firewall rules and network connectivity:
+
+```bash
+# Test with timeout
+telnet smtp.institution.edu 587
+```
+
+**Firewall Rules:**
+
+Ensure outbound connections allowed on SMTP ports (25, 587, 465).
+
+### Character Encoding Issues
+
+Sakai uses UTF-8 by default. Ensure your email templates use UTF-8 encoding:
+
+```properties
+# Files should be saved as UTF-8
+# Properties files use \uXXXX escaping for non-ASCII characters
+```
+
+## Incoming Email Setup with Postfix
+
+Example Postfix configuration to forward emails to Sakai:
+
+### Postfix Main Configuration
+
+Edit `/etc/postfix/main.cf`:
+
+```
+# Accept mail for Sakai domain
+mydestination = sakai.institution.edu, localhost
+
+# Virtual alias for Sakai
+virtual_alias_maps = hash:/etc/postfix/virtual
+```
+
+### Virtual Aliases
+
+Edit `/etc/postfix/virtual`:
+
+```
+# Forward all mail to Sakai SMTP service
+@sakai.institution.edu  sakai-smtp@localhost
+```
+
+Create transport for local delivery:
+
+Edit `/etc/postfix/transport`:
+
+```
+sakai-smtp@localhost  smtp:localhost:8025
+```
+
+Apply changes:
+
+```bash
+postmap /etc/postfix/virtual
+postmap /etc/postfix/transport
+postfix reload
+```
+
+## Email Performance Optimization
+
+### Connection Pooling
+
+Sakai reuses SMTP connections when possible. Monitor connection pool:
+
+```properties
+# Check email service statistics in logs
+smtpDebug@org.sakaiproject.email.api.EmailService=true
+```
+
+### Batch Processing
+
+For bulk emails, Sakai processes them in batches. Adjust batch processing if needed through custom configuration.
+
+### Queue Monitoring
+
+Monitor email queue in database:
+
+```sql
+-- Check pending emails (if queuing is enabled)
+SELECT COUNT(*) FROM SAKAI_EMAIL_QUEUE WHERE SENT = 0;
+```
+
+## Best Practices
+
+1. **Use TLS**: Always enable SSL/TLS for SMTP connections
+2. **Test thoroughly**: Verify email delivery in test environment first
+3. **Monitor deliverability**: Track bounce rates and spam complaints
+4. **Set proper From address**: Use a valid, verified domain
+5. **Configure SPF/DKIM/DMARC**: Improve email deliverability
+6. **Use dedicated SMTP service**: Consider SendGrid, Amazon SES, etc. for reliability
+7. **Secure credentials**: Store passwords in `security.properties` with restricted permissions
+8. **Log email activity**: Keep debug mode available for troubleshooting
+9. **Set up incoming email carefully**: Test with non-production domains first
+10. **Document configuration**: Keep notes on your specific SMTP provider settings
+
+## Related Documentation
+
+- [Sakai Properties Configuration](/deployment/sakai-properties)
+- [Database Configuration](/deployment/database-configuration)

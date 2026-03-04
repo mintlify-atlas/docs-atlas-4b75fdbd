@@ -1,0 +1,755 @@
+---
+title: Security Configuration
+description: Implement security best practices, authentication methods, and access controls for Sakai LMS
+---
+
+# Security Configuration
+
+Securing your Sakai installation is critical for protecting user data and maintaining system integrity. This guide covers essential security configurations and best practices.
+
+## SSL/TLS Configuration
+
+Always use HTTPS in production to encrypt data in transit.
+
+### Tomcat SSL Configuration
+
+<Steps>
+
+<Step title="Obtain SSL Certificate">
+
+Options:
+- Purchase from certificate authority
+- Use Let's Encrypt (free)
+- Generate self-signed (testing only)
+
+For Let's Encrypt:
+```bash
+sudo certbot certonly --standalone -d sakai.example.edu
+```
+
+</Step>
+
+<Step title="Configure Tomcat Connector">
+
+Edit `/opt/tomcat9/conf/server.xml`:
+
+```xml
+<Connector port="8443" protocol="HTTP/1.1"
+           maxThreads="150" SSLEnabled="true">
+    <SSLHostConfig>
+        <Certificate
+            certificateKeyFile="/etc/letsencrypt/live/sakai.example.edu/privkey.pem"
+            certificateFile="/etc/letsencrypt/live/sakai.example.edu/cert.pem"
+            certificateChainFile="/etc/letsencrypt/live/sakai.example.edu/chain.pem"
+            type="RSA" />
+    </SSLHostConfig>
+</Connector>
+```
+
+</Step>
+
+<Step title="Force HTTPS in Sakai">
+
+Add to `sakai.properties`:
+
+```properties
+# Force HTTPS URLs
+force.url.secure=443
+
+# Server URL with HTTPS
+serverUrl=https://sakai.example.edu
+```
+
+</Step>
+
+<Step title="Redirect HTTP to HTTPS">
+
+Add redirect connector in `server.xml`:
+
+```xml
+<Connector port="8080" protocol="HTTP/1.1"
+           redirectPort="8443" />
+```
+
+</Step>
+
+</Steps>
+
+### Reverse Proxy SSL Termination
+
+For production, use a reverse proxy (nginx/Apache) for SSL termination.
+
+#### Nginx Configuration
+
+```nginx
+server {
+    listen 80;
+    server_name sakai.example.edu;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name sakai.example.edu;
+
+    ssl_certificate /etc/letsencrypt/live/sakai.example.edu/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sakai.example.edu/privkey.pem;
+    
+    # SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+#### Tomcat RemoteIpValve
+
+Configure Tomcat to recognize forwarded headers:
+
+```xml
+<Valve className="org.apache.catalina.valves.RemoteIpValve"
+       remoteIpHeader="x-forwarded-for"
+       protocolHeader="x-forwarded-proto" />
+```
+
+<Warning>
+When using a reverse proxy, do NOT set `force.url.secure` in sakai.properties. Use RemoteIpValve instead.
+</Warning>
+
+## Authentication Security
+
+### Password Policies
+
+Enforce strong password requirements.
+
+#### Enable Password Policy
+
+```properties
+# Enable password policy
+user.password.policy=true
+
+# Policy provider
+user.password.policy.provider.name=org.sakaiproject.user.api.PasswordPolicyProvider
+
+# Entropy requirements (password strength)
+user.password.minimum.entropy=16
+user.password.medium.entropy=32
+user.password.high.entropy=48
+
+# Prevent user info in passwords
+user.password.maximum.sequence.length=3
+```
+
+#### Password Requirements
+
+With policy enabled, passwords must:
+- Meet minimum entropy score
+- Not contain long sequences from username
+- Not be common dictionary words
+- Meet length requirements
+
+### Failed Login Protection
+
+```properties
+# Log failed login attempts
+login.log-failed=true
+
+# Enable account lockout after failed attempts
+user.login.maxattempts=5
+user.login.lockout.minutes=30
+```
+
+### Session Security
+
+```properties
+# Session timeout (minutes)
+inactiveInterval=30
+
+# Cookie security
+cookieName=SAKAIID
+cookieSecure=true
+cookieHttpOnly=true
+
+# Cookie domain (for subdomain access)
+cookieDomain=.example.edu
+```
+
+### reCAPTCHA Protection
+
+Prevent automated attacks on login and registration.
+
+```properties
+# Enable reCAPTCHA
+user.recaptcha.enabled=true
+user.recaptcha.public-key=YOUR_RECAPTCHA_SITE_KEY
+user.recaptcha.private-key=YOUR_RECAPTCHA_SECRET_KEY
+```
+
+Get keys from [Google reCAPTCHA](https://www.google.com/recaptcha/admin).
+
+## Single Sign-On (SSO)
+
+Integrate with institutional authentication systems.
+
+### CAS (Central Authentication Service)
+
+<Steps>
+
+<Step title="Enable CAS in Sakai">
+
+```properties
+# Enable container authentication
+container.login=true
+top.login=false
+
+# CAS server URL
+cas.server.url=https://cas.example.edu/cas
+
+# Service URL (your Sakai instance)
+cas.service.url=https://sakai.example.edu/portal
+
+# Container logout URL
+login.container.logout.url=https://cas.example.edu/cas/logout
+```
+
+</Step>
+
+<Step title="Configure Tomcat Valve">
+
+Add CAS valve to `server.xml` or `context.xml`:
+
+```xml
+<Valve className="org.jasig.cas.client.tomcat.v90.Cas30CasAuthenticator"
+       casServerLoginUrl="https://cas.example.edu/cas/login"
+       serverName="https://sakai.example.edu" />
+```
+
+</Step>
+
+<Step title="Enable Guest Login">
+
+Allow direct login for guest accounts:
+
+```properties
+# Enable extra login
+xlogin.enabled=true
+xlogin.text=Guest Login
+xlogin.choice.text=Guest Users
+```
+
+</Step>
+
+</Steps>
+
+### SAML 2.0
+
+Integrate with SAML identity providers.
+
+```properties
+# SAML entity ID
+saml.entityId=https://sakai.example.edu/saml
+
+# Identity Provider metadata
+saml.idp.entityId=https://idp.example.edu/saml
+saml.idp.metadata.url=https://idp.example.edu/metadata.xml
+
+# Attribute mapping
+saml.attribute.userid=urn:oid:0.9.2342.19200300.100.1.1
+saml.attribute.email=urn:oid:0.9.2342.19200300.100.1.3
+saml.attribute.givenName=urn:oid:2.5.4.42
+saml.attribute.surname=urn:oid:2.5.4.4
+
+# Signing and encryption
+saml.keystore.path=/path/to/saml-keystore.jks
+saml.keystore.password=KEYSTORE_PASSWORD
+saml.key.alias=sakai
+saml.key.password=KEY_PASSWORD
+```
+
+### LDAP/Active Directory
+
+Authenticate against directory services.
+
+```properties
+# LDAP provider
+provider.directory=org.sakaiproject.user.api.UserDirectoryProvider
+
+# LDAP connection
+ldap.url=ldaps://ldap.example.edu:636
+ldap.basedn=ou=people,dc=example,dc=edu
+
+# Bind credentials for search
+ldap.bind.dn=cn=sakai,ou=services,dc=example,dc=edu
+ldap.bind.password=LDAP_PASSWORD
+
+# User attributes
+ldap.attribute.userid=uid
+ldap.attribute.firstname=givenName
+ldap.attribute.lastname=sn
+ldap.attribute.email=mail
+
+# Search filter
+ldap.filter=(objectClass=inetOrgPerson)
+
+# Connection pooling
+ldap.pooling=true
+ldap.pool.maxsize=20
+```
+
+<Info>
+Use LDAPS (LDAP over SSL) instead of plain LDAP to encrypt directory communications.
+</Info>
+
+## Content Security
+
+### HTML Content Filtering
+
+Protect against XSS attacks by filtering user-submitted HTML.
+
+```properties
+# Use high security profile (recommended)
+content.cleaner.default.low.security=false
+
+# Error handling for invalid HTML
+# Options: none, logged, notify, display
+content.cleaner.errors.handling=notify
+
+# Log errors for monitoring
+content.cleaner.errors.logged=true
+
+# Force HTML files to download (prevent execution)
+content.html.forcedownload=true
+```
+
+### Custom Security Policies
+
+Override AntiSamy security policies:
+
+1. Create custom policy files:
+   - `${sakai.home}/antisamy/high-security-policy.xml`
+   - `${sakai.home}/antisamy/low-security-policy.xml`
+
+2. Base on default policies in:
+   - `kernel/sakai-kernel-impl/src/main/resources/antisamy/`
+
+### File Upload Security
+
+```properties
+# Maximum upload size (MB)
+content.upload.max=20
+
+# Upload ceiling (cannot be exceeded)
+content.upload.ceiling=100
+
+# Upload temporary directory
+content.upload.dir=/tmp/sakai-uploads
+
+# Block dangerous file types
+content.upload.blocked.extensions=exe,bat,cmd,com,pif,scr,vbs,js,jar
+
+# Virus scanning integration
+viruscan.enabled=true
+viruscan.engine=clamav
+viruscan.host=localhost
+viruscan.port=3310
+```
+
+## Access Control
+
+### IP-Based Restrictions
+
+Restrict access to administrative functions.
+
+```properties
+# Web services IP whitelist
+webservices.allowlogin=true
+webservices.allow=127.0.0.1,10.0.0.0/8,192.168.1.0/24
+
+# Admin workspace IP restrictions
+admin.workspace.allowed.ips=10.0.0.0/8
+```
+
+### User Type Restrictions
+
+Limit account creation by user type.
+
+```properties
+# Types allowed for anonymous registration
+user.registrationTypes=registered
+
+# Types non-admins can create
+user.nonAdminTypes=guest
+```
+
+### Email Domain Restrictions
+
+```properties
+# Blocked email domains for registration
+invalidEmailInIdAccountString=@gmail.com,@yahoo.com,@hotmail.com
+
+# Custom error message
+user.email.invalid.domain.message=Please use your institutional email address.
+
+# Disallow duplicate emails
+user.email.allowduplicates=false
+```
+
+## Database Security
+
+### Connection Security
+
+```properties
+# Use SSL for database connection
+url@javax.sql.BaseDataSource=jdbc:mariadb://db.example.edu:3306/sakai?useSSL=true&requireSSL=true
+
+# Verify server certificate
+url@javax.sql.BaseDataSource=jdbc:mariadb://db.example.edu:3306/sakai?useSSL=true&serverSslCert=/path/to/ca.pem
+```
+
+### Database User Permissions
+
+Grant minimal required permissions:
+
+```sql
+-- Create dedicated Sakai user
+CREATE USER 'sakai'@'app-server.example.edu' IDENTIFIED BY 'STRONG_PASSWORD';
+
+-- Grant only necessary privileges
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, INDEX, ALTER 
+ON sakai.* TO 'sakai'@'app-server.example.edu';
+
+-- Do NOT grant:
+-- DROP, GRANT, FILE, PROCESS, SUPER, etc.
+```
+
+### Password Storage
+
+Never store database passwords in plain text.
+
+**Encrypt Properties**:
+
+```bash
+# Use Tomcat vault or encrypted properties
+# Store in security.properties instead of sakai.properties
+```
+
+**Environment Variables**:
+
+```bash
+# In setenv.sh
+export DB_PASSWORD="your_password"
+
+# In sakai.properties
+password@javax.sql.BaseDataSource=${env.DB_PASSWORD}
+```
+
+## API Security
+
+### Web Services Authentication
+
+```properties
+# Require authentication for web services
+webservices.allowlogin=true
+
+# Session-based authentication
+webservices.allow.session=true
+
+# IP restrictions
+webservices.allow=127.0.0.1,10.0.0.0/8
+
+# Rate limiting
+webservices.ratelimit.enabled=true
+webservices.ratelimit.requests=100
+webservices.ratelimit.period=60
+```
+
+### REST API Security
+
+```properties
+# Enable REST entity broker
+entitybroker.rest.enabled=true
+
+# Require authentication
+entitybroker.require.authentication=true
+
+# CORS settings
+entitybroker.cors.enabled=true
+entitybroker.cors.allowed.origins=https://trusted-site.example.edu
+```
+
+## Security Headers
+
+Add security headers to HTTP responses.
+
+### Configure Response Headers
+
+```properties
+# Number of headers to add
+response.headers.count=5
+
+# Security headers
+response.headers.1=X-Content-Type-Options::nosniff
+response.headers.2=X-Frame-Options::SAMEORIGIN
+response.headers.3=X-XSS-Protection::1; mode=block
+response.headers.4=Strict-Transport-Security::max-age=31536000; includeSubDomains
+response.headers.5=Content-Security-Policy::default-src 'self'
+```
+
+### Content Security Policy
+
+Define allowed content sources:
+
+```properties
+response.headers.6=Content-Security-Policy::default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'
+```
+
+<Warning>
+Test CSP thoroughly before deployment as it can break functionality if too restrictive.
+</Warning>
+
+## Privacy and Data Protection
+
+### GDPR Compliance
+
+```properties
+# Enable privacy controls
+privacy.enabled=true
+
+# Allow users to control profile visibility
+profile.visibility.user.control=true
+
+# Data retention policies
+data.retention.enabled=true
+data.retention.period.days=2555  # 7 years
+
+# User data export
+user.data.export.enabled=true
+```
+
+### Cookie Consent
+
+```properties
+# Enable cookie policy warning
+portal.cookie.policy.warning.enabled=true
+portal.cookie.policy.warning.url=/library/content/cookie_policy.html
+```
+
+### Audit Logging
+
+Enable comprehensive audit trails.
+
+```properties
+# Event logging
+events.enabled=true
+
+# Log all user actions
+events.log.all=true
+
+# Event table size monitoring
+events.size.check=true
+
+# Archive old events
+events.archive.enabled=true
+events.archive.age.days=365
+```
+
+## Monitoring and Alerts
+
+### Security Event Monitoring
+
+Monitor critical security events:
+
+```properties
+# Alert on multiple failed logins
+security.alert.failed.logins=5
+security.alert.failed.logins.period=300
+
+# Alert email
+security.alert.email=security@example.edu
+
+# Monitor privilege escalation
+security.monitor.admin.access=true
+```
+
+### Log Analysis
+
+Regularly review logs for:
+- Failed login attempts
+- Privilege escalation attempts
+- Unusual API usage
+- Large file uploads
+- Database errors
+
+```bash
+# Monitor failed logins
+grep "Login failed" /opt/tomcat9/logs/catalina.out | tail -100
+
+# Check for suspicious activity
+grep -E "(SQL|XSS|script)" /opt/tomcat9/logs/catalina.out
+```
+
+## Backup Security
+
+### Encrypted Backups
+
+```bash
+#!/bin/bash
+# Encrypted backup script
+
+BACKUP_FILE="sakai-backup-$(date +%Y%m%d).tar.gz"
+ENCRYPTED_FILE="${BACKUP_FILE}.gpg"
+
+# Create backup
+tar -czf $BACKUP_FILE /var/sakai/content /opt/tomcat9/sakai
+
+# Encrypt with GPG
+gpg --symmetric --cipher-algo AES256 $BACKUP_FILE
+
+# Remove unencrypted backup
+rm $BACKUP_FILE
+
+# Store encrypted backup securely
+mv $ENCRYPTED_FILE /secure/backup/location/
+```
+
+### Secure Backup Storage
+
+- Store backups on separate systems
+- Encrypt backups at rest
+- Limit access to backup files
+- Regular backup restoration tests
+- Offsite backup copies
+
+## Security Checklist
+
+<Steps>
+
+<Step title="SSL/TLS">
+
+- [ ] SSL certificate installed and valid
+- [ ] HTTPS forced for all connections
+- [ ] TLS 1.2+ only (no SSL, TLS 1.0/1.1)
+- [ ] Strong cipher suites configured
+- [ ] HSTS header enabled
+
+</Step>
+
+<Step title="Authentication">
+
+- [ ] Strong password policy enabled
+- [ ] Failed login protection configured
+- [ ] Session timeout set appropriately
+- [ ] SSO integrated (if applicable)
+- [ ] reCAPTCHA enabled for public forms
+
+</Step>
+
+<Step title="Content Security">
+
+- [ ] HTML content filtering enabled
+- [ ] File upload restrictions configured
+- [ ] Virus scanning enabled
+- [ ] Content Security Policy defined
+- [ ] XSS protection headers set
+
+</Step>
+
+<Step title="Access Control">
+
+- [ ] IP restrictions for admin functions
+- [ ] User type restrictions configured
+- [ ] Email domain restrictions set
+- [ ] Web services authentication required
+- [ ] API rate limiting enabled
+
+</Step>
+
+<Step title="Database Security">
+
+- [ ] Database connection encrypted
+- [ ] Minimal database user permissions
+- [ ] Strong database passwords
+- [ ] Database backups encrypted
+- [ ] Regular security updates applied
+
+</Step>
+
+<Step title="Monitoring">
+
+- [ ] Audit logging enabled
+- [ ] Security event monitoring active
+- [ ] Regular log reviews scheduled
+- [ ] Incident response plan documented
+- [ ] Security contacts configured
+
+</Step>
+
+</Steps>
+
+## Security Best Practices
+
+### Regular Updates
+
+- Apply Sakai security patches promptly
+- Keep Tomcat updated
+- Update Java to latest LTS version
+- Apply OS security updates
+- Update database server regularly
+
+### Principle of Least Privilege
+
+- Grant minimal necessary permissions
+- Limit admin account usage
+- Use separate accounts for different roles
+- Regularly audit permissions
+- Remove unused accounts
+
+### Defense in Depth
+
+- Multiple security layers
+- Firewall protection
+- Intrusion detection/prevention
+- Network segmentation
+- Regular security testing
+
+### Incident Response
+
+Prepare for security incidents:
+
+1. **Detection**: Monitor logs and alerts
+2. **Analysis**: Investigate suspected incidents
+3. **Containment**: Isolate affected systems
+4. **Eradication**: Remove threats
+5. **Recovery**: Restore normal operations
+6. **Lessons Learned**: Document and improve
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Secure user account management
+  </Card>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Review security-related settings
+  </Card>
+  <Card title="Database Setup" icon="database" href="/admin/database-setup">
+    Secure database configuration
+  </Card>
+  <Card title="Site Administration" icon="sitemap" href="/admin/site-administration">
+    Manage site permissions
+  </Card>
+</CardGroup>

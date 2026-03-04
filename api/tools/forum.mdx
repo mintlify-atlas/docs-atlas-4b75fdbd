@@ -1,0 +1,504 @@
+---
+title: DiscussionForumService API
+description: API reference for managing discussion forums and private messages in Sakai LMS
+---
+
+## Overview
+
+The `DiscussionForumService` provides the API for both the Discussion Forums tool and the Private Messages tool in Sakai LMS. It defines events and constants used by both messaging systems.
+
+**Package**: `org.sakaiproject.api.app.messageforums`
+
+**Source**: `/msgcntr/messageforums-api/src/java/org/sakaiproject/api/app/messageforums/DiscussionForumService.java`
+
+## Constants
+
+### Service Identifiers
+
+```java
+public static final String SERVICE_NAME = "org.sakaiproject.api.app.messageforums.DiscussionForumService";
+public static final String REFERENCE_ROOT = "/messageforum";
+```
+
+### Tool IDs
+
+```java
+public static final String MESSAGE_CENTER_ID = "sakai.messagecenter";
+public static final String FORUMS_TOOL_ID = "sakai.forums";
+public static final String MESSAGES_TOOL_ID = "sakai.messages";
+```
+
+## Private Messages Events
+
+Events fired by the Private Messages tool:
+
+### Message Events
+
+```java
+public static final String EVENT_MESSAGES_ADD = "messages.new";
+public static final String EVENT_MESSAGES_READ = "messages.read";
+public static final String EVENT_MESSAGES_UNREAD = "messages.unread";
+public static final String EVENT_MESSAGES_REMOVE = "messages.delete";
+public static final String EVENT_MESSAGES_RESPONSE = "messages.reply";
+public static final String EVENT_MESSAGES_FORWARD = "messages.forward";
+public static final String EVENT_MESSAGES_READ_RECEIPT = "messages.read.receipt";
+public static final String EVENT_MESSAGES_MOVE_TO_DELETED_FOLDER = "messages.movedtodeletefolder";
+```
+
+**Usage**:
+```java
+// When a new private message is created
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_MESSAGES_ADD, 
+        messageReference, 
+        true
+    )
+);
+
+// When a message is read
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_MESSAGES_READ, 
+        messageReference, 
+        false
+    )
+);
+```
+
+### Folder Events
+
+```java
+public static final String EVENT_MESSAGES_FOLDER_ADD = "messages.newfolder";
+public static final String EVENT_MESSAGES_FOLDER_REVISE = "messages.revisefolder";
+public static final String EVENT_MESSAGES_FOLDER_REMOVE = "messages.deletefolder";
+```
+
+**Example**:
+```java
+// Create a new folder
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_MESSAGES_FOLDER_ADD,
+        folderReference,
+        true
+    )
+);
+```
+
+## Discussion Forums Events
+
+Events fired by the Discussion Forums tool:
+
+### Forum Events
+
+```java
+public static final String EVENT_FORUMS_ADD = "forums.new";
+public static final String EVENT_FORUMS_FORUM_ADD = "forums.newforum";
+public static final String EVENT_FORUMS_FORUM_REMOVE = "forums.deleteforum";
+public static final String EVENT_FORUMS_FORUM_REVISE = "forums.reviseforum";
+```
+
+**Example**:
+```java
+// When a new forum is created
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_FORUM_ADD,
+        forumReference,
+        true
+    )
+);
+```
+
+### Topic Events
+
+```java
+public static final String EVENT_FORUMS_TOPIC_ADD = "forums.newtopic";
+public static final String EVENT_FORUMS_TOPIC_REMOVE = "forums.deletetopic";
+public static final String EVENT_FORUMS_TOPIC_REVISE = "forums.revisetopic";
+public static final String EVENT_FORUMS_TOPIC_READ = "forums.topic.read";
+```
+
+**Example**:
+```java
+// When a new topic is created
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_TOPIC_ADD,
+        topicReference,
+        true
+    )
+);
+
+// When a topic is viewed
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_TOPIC_READ,
+        topicReference,
+        false
+    )
+);
+```
+
+### Post/Response Events
+
+```java
+public static final String EVENT_FORUMS_READ = "forums.read";
+public static final String EVENT_FORUMS_RESPONSE = "forums.response";
+public static final String EVENT_FORUMS_REMOVE = "forums.delete";
+public static final String EVENT_FORUMS_REVISE = "forums.revise";
+```
+
+**Example**:
+```java
+// When a user posts a response
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_RESPONSE,
+        postReference,
+        true
+    )
+);
+
+// When a post is read
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_READ,
+        postReference,
+        false
+    )
+);
+```
+
+### Grading Events
+
+```java
+public static final String EVENT_FORUMS_GRADE = "forums.grade";
+```
+
+**Example**:
+```java
+// When a forum post is graded
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_GRADE,
+        gradeReference,
+        true
+    )
+);
+```
+
+### Thread Management Events
+
+```java
+public static final String EVENT_FORUMS_MOVE_THREAD = "forums.movethread";
+```
+
+**Example**:
+```java
+// When a thread is moved to another topic
+eventTrackingService.post(
+    eventTrackingService.newEvent(
+        DiscussionForumService.EVENT_FORUMS_MOVE_THREAD,
+        threadReference,
+        true
+    )
+);
+```
+
+## Event Tracking Example
+
+Here's a complete example of how to use these events in a custom tool or service:
+
+```java
+import org.sakaiproject.api.app.messageforums.DiscussionForumService;
+import org.sakaiproject.event.api.EventTrackingService;
+import org.sakaiproject.event.api.Event;
+
+public class ForumEventExample {
+    
+    private EventTrackingService eventTrackingService;
+    
+    /**
+     * Post a new forum message and track the event
+     */
+    public void postNewMessage(String siteId, String topicId, String content) {
+        // Create the message (implementation details omitted)
+        String messageId = createMessage(topicId, content);
+        
+        // Build reference
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/site/" + siteId + "/topic/" + topicId + 
+                          "/message/" + messageId;
+        
+        // Post event
+        Event event = eventTrackingService.newEvent(
+            DiscussionForumService.EVENT_FORUMS_RESPONSE,
+            reference,
+            true  // modify = true for creating content
+        );
+        eventTrackingService.post(event);
+    }
+    
+    /**
+     * Mark a message as read and track the event
+     */
+    public void markMessageAsRead(String siteId, String messageId) {
+        // Mark as read (implementation details omitted)
+        updateMessageReadStatus(messageId, true);
+        
+        // Build reference
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/site/" + siteId + "/message/" + messageId;
+        
+        // Post event
+        Event event = eventTrackingService.newEvent(
+            DiscussionForumService.EVENT_FORUMS_READ,
+            reference,
+            false  // modify = false for read-only operations
+        );
+        eventTrackingService.post(event);
+    }
+    
+    /**
+     * Create a private message and track the event
+     */
+    public void sendPrivateMessage(String recipientId, String subject, String body) {
+        // Create the message (implementation details omitted)
+        String messageId = createPrivateMessage(recipientId, subject, body);
+        
+        // Build reference
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/message/" + messageId;
+        
+        // Post event
+        Event event = eventTrackingService.newEvent(
+            DiscussionForumService.EVENT_MESSAGES_ADD,
+            reference,
+            true
+        );
+        eventTrackingService.post(event);
+    }
+    
+    // Implementation methods (simplified)
+    private String createMessage(String topicId, String content) {
+        // Create message logic
+        return "msg123";
+    }
+    
+    private void updateMessageReadStatus(String messageId, boolean read) {
+        // Update read status logic
+    }
+    
+    private String createPrivateMessage(String recipientId, String subject, String body) {
+        // Create private message logic
+        return "pm456";
+    }
+}
+```
+
+## Event Listening Example
+
+To listen for forum events:
+
+```java
+import org.sakaiproject.event.api.Event;
+import org.sakaiproject.event.api.EventTrackingService;
+import org.sakaiproject.event.api.NotificationService;
+import org.sakaiproject.api.app.messageforums.DiscussionForumService;
+
+public class ForumEventListener implements Observer {
+    
+    private EventTrackingService eventTrackingService;
+    
+    public void init() {
+        // Register to observe forum events
+        eventTrackingService.addLocalObserver(this);
+    }
+    
+    public void destroy() {
+        eventTrackingService.deleteObserver(this);
+    }
+    
+    @Override
+    public void update(Observable o, Object arg) {
+        if (arg instanceof Event) {
+            Event event = (Event) arg;
+            String eventType = event.getEvent();
+            
+            // Handle forum response events
+            if (DiscussionForumService.EVENT_FORUMS_RESPONSE.equals(eventType)) {
+                handleNewForumPost(event);
+            }
+            
+            // Handle private message events
+            else if (DiscussionForumService.EVENT_MESSAGES_ADD.equals(eventType)) {
+                handleNewPrivateMessage(event);
+            }
+            
+            // Handle grade events
+            else if (DiscussionForumService.EVENT_FORUMS_GRADE.equals(eventType)) {
+                handleForumGraded(event);
+            }
+        }
+    }
+    
+    private void handleNewForumPost(Event event) {
+        String reference = event.getResource();
+        String userId = event.getUserId();
+        
+        // Send notifications, update counts, etc.
+        System.out.println("New forum post by " + userId + ": " + reference);
+    }
+    
+    private void handleNewPrivateMessage(Event event) {
+        String reference = event.getResource();
+        String senderId = event.getUserId();
+        
+        // Send email notification, update unread count, etc.
+        System.out.println("New private message from " + senderId);
+    }
+    
+    private void handleForumGraded(Event event) {
+        String reference = event.getResource();
+        String graderId = event.getUserId();
+        
+        // Update gradebook, send notification, etc.
+        System.out.println("Forum post graded by " + graderId);
+    }
+}
+```
+
+## Reference Format
+
+The reference format for forum entities follows this pattern:
+
+```
+/messageforum/site/{siteId}/forum/{forumId}/topic/{topicId}/message/{messageId}
+```
+
+**Examples**:
+```java
+// Forum reference
+String forumRef = "/messageforum/site/abc123/forum/forum456";
+
+// Topic reference
+String topicRef = "/messageforum/site/abc123/forum/forum456/topic/topic789";
+
+// Message reference
+String messageRef = "/messageforum/site/abc123/forum/forum456/topic/topic789/message/msg101";
+
+// Private message reference
+String privateMessageRef = "/messageforum/message/pm202";
+```
+
+## Common Use Cases
+
+### Tracking Discussion Engagement
+
+```java
+public class DiscussionEngagementTracker {
+    
+    private EventTrackingService eventTrackingService;
+    
+    public void trackTopicView(String siteId, String topicId) {
+        String reference = String.format(
+            "%s/site/%s/topic/%s",
+            DiscussionForumService.REFERENCE_ROOT,
+            siteId,
+            topicId
+        );
+        
+        eventTrackingService.post(
+            eventTrackingService.newEvent(
+                DiscussionForumService.EVENT_FORUMS_TOPIC_READ,
+                reference,
+                false
+            )
+        );
+    }
+    
+    public void trackForumResponse(String siteId, String forumId, 
+                                   String topicId, String messageId) {
+        String reference = String.format(
+            "%s/site/%s/forum/%s/topic/%s/message/%s",
+            DiscussionForumService.REFERENCE_ROOT,
+            siteId, forumId, topicId, messageId
+        );
+        
+        eventTrackingService.post(
+            eventTrackingService.newEvent(
+                DiscussionForumService.EVENT_FORUMS_RESPONSE,
+                reference,
+                true
+            )
+        );
+    }
+}
+```
+
+### Tracking Private Message Activity
+
+```java
+public class MessageActivityTracker {
+    
+    private EventTrackingService eventTrackingService;
+    
+    public void trackMessageSent(String messageId) {
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/message/" + messageId;
+        
+        eventTrackingService.post(
+            eventTrackingService.newEvent(
+                DiscussionForumService.EVENT_MESSAGES_ADD,
+                reference,
+                true
+            )
+        );
+    }
+    
+    public void trackMessageRead(String messageId) {
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/message/" + messageId;
+        
+        eventTrackingService.post(
+            eventTrackingService.newEvent(
+                DiscussionForumService.EVENT_MESSAGES_READ,
+                reference,
+                false
+            )
+        );
+    }
+    
+    public void trackReadReceipt(String messageId) {
+        String reference = DiscussionForumService.REFERENCE_ROOT + 
+                          "/message/" + messageId;
+        
+        eventTrackingService.post(
+            eventTrackingService.newEvent(
+                DiscussionForumService.EVENT_MESSAGES_READ_RECEIPT,
+                reference,
+                true
+            )
+        );
+    }
+}
+```
+
+## Integration Points
+
+The `DiscussionForumService` events integrate with:
+
+- **Statistics/Analytics**: Track user engagement and participation
+- **Notifications**: Trigger email or in-app notifications
+- **Gradebook**: Integration for graded forums
+- **Reports**: Generate activity reports
+- **Search**: Index forum content for search
+- **LRS/xAPI**: Send learning activity statements
+
+## See Also
+
+- [Event Tracking API](/api/kernel/event) - Event tracking service
+- [Entity API](/api/kernel/entity) - Entity and reference handling
+- [Notification API](/api/kernel/notification) - User notifications

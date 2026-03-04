@@ -1,0 +1,532 @@
+---
+title: Skin Customization
+description: Customize the look and feel of Sakai using the Morpheus theme framework
+---
+
+## Overview
+
+Sakai uses the **Morpheus** theme framework for UI customization. Morpheus is built with SASS and allows you to customize colors, fonts, logos, icons, and Bootstrap styles to match your institution's branding.
+
+## Morpheus Architecture
+
+Morpheus has a master theme located in `/library/src/morpheus-master/` which is compiled to generate actual skins. You cannot use the master theme directly - it must be compiled first.
+
+### Directory Structure
+
+```
+library/src/morpheus-master/
+├── sass/
+│   ├── _defaults.scss          # Main configuration variables
+│   ├── base/
+│   │   ├── _icons.scss         # Tool icon mappings
+│   │   ├── _bootstrap-defaults.scss  # Bootstrap overrides
+│   │   └── ...
+│   └── ...
+└── ...
+```
+
+## Basic Configuration
+
+### Skin Settings in sakai.properties
+
+```properties
+# Default skin for sites without a skin setting
+# DEFAULT: default-skin
+skin.default=morpheus-default
+
+# Path to skin files
+# DEFAULT: /library/skin
+skin.repo=/library/skin
+
+# Disable skin selection for course sites
+# DEFAULT: false
+disable.course.site.skin.selection=false
+
+# Disable skin selection for non-course sites  
+# DEFAULT: true
+disable.noncourse.site.skin.selection=false
+```
+
+## Compiling Skins
+
+### Default Skin Compilation
+
+Navigate to `/library/` and compile the master theme:
+
+```bash
+cd library/
+mvn clean install -Pcompile-skin
+```
+
+This generates a skin named `morpheus-default` in `/library/src/webapp/skin/morpheus-default/`.
+
+<Warning>
+The `-Pcompile-skin` profile is active by default, so you can simply use `mvn clean install` in the library directory.
+</Warning>
+
+### Custom Skin Name
+
+Compile with a custom skin name:
+
+```bash
+mvn clean install -Dsakai.skin.target=institution-skin
+```
+
+This creates a skin named `institution-skin`.
+
+### Custom Skin with SCSS File
+
+Include your own customization file:
+
+```bash
+mvn clean install -Dsakai.skin.customization.file=/path/to/your/custom.scss
+```
+
+You can combine both options:
+
+```bash
+mvn clean install \
+  -Dsakai.skin.target=institution-skin \
+  -Dsakai.skin.customization.file=/path/to/institution-custom.scss
+```
+
+## Customizing Defaults
+
+Edit `/library/src/morpheus-master/sass/_defaults.scss` to change default colors, fonts, and styles.
+
+### Primary Color Variables
+
+```scss
+// Primary color - used in header, buttons, tool navigation
+var(--sakai-primary-color): #0f4b81;
+
+// Background color for portal
+var(--sakai-background-color): #ffffff;
+
+// Tool menu background color
+$tool-menu-color: #f5f5f5;
+
+// Text color for portlets, menus, etc.
+var(--sakai-text-color): #333333;
+```
+
+### Typography
+
+```scss
+// Font family
+$font-family: 'Open Sans', Arial, sans-serif;
+
+// URL to external font (if using web fonts)
+$font-family-url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap';
+```
+
+### Logo Customization
+
+```scss
+// Location of logo displayed in header
+$logo: url('/library/skin/institution-skin/images/logo.png');
+```
+
+### Button Styles
+
+```scss
+// Enable gradient buttons (glossy) or flat buttons
+$button-gradient: false;  // false = flat, true = gradient
+```
+
+## Custom SCSS Example
+
+Create a custom SCSS file (e.g., `institution-custom.scss`):
+
+```scss
+// institution-custom.scss
+// Custom skin for Institution Name
+
+// Override primary colors
+:root {
+  --sakai-primary-color: #005a9c;
+  --sakai-background-color: #f8f9fa;
+  --sakai-text-color: #212529;
+}
+
+// Custom tool menu styling
+$tool-menu-color: #e9ecef;
+
+// Typography
+$font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+$font-family-url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap';
+
+// Logo
+$logo: url('/library/skin/institution-skin/images/institution-logo.png');
+
+// Flat buttons
+$button-gradient: false;
+
+// Additional custom styles
+.Mrphs-mainHeader {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.Mrphs-toolsNav__menuitem--link {
+  font-weight: 500;
+  
+  &:hover {
+    background-color: rgba(0, 90, 156, 0.1);
+  }
+}
+```
+
+Compile with this custom file:
+
+```bash
+cd library/
+mvn clean install \
+  -Dsakai.skin.target=institution-skin \
+  -Dsakai.skin.customization.file=/path/to/institution-custom.scss
+```
+
+## Changing Tool Icons
+
+Morpheus uses Font Awesome icons. Icon mappings are in `/library/src/morpheus-master/sass/base/_icons.scss`.
+
+### Site Navigation Dropdown Icons
+
+Edit the `.Mrphs-toolsNav__menuitem--icon` section (around line 4):
+
+```scss
+.Mrphs-toolsNav__menuitem--icon {
+  // Schedule/Calendar tool
+  &.icon-sakai--sakai-schedule {
+    @extend .fa-calendar;
+  }
+  
+  // Assignments tool
+  &.icon-sakai--sakai-assignment-grades {
+    @extend .fa-tasks;
+  }
+  
+  // Resources tool
+  &.icon-sakai--sakai-resources {
+    @extend .fa-folder-open;
+  }
+  
+  // Gradebook tool
+  &.icon-sakai--sakai-gradebook-tool {
+    @extend .fa-table;
+  }
+}
+```
+
+### Tool Navigation Menu (Sidebar) Icons
+
+Edit the `.Mrphs-sitesNav__submenuitem` section (around line 72):
+
+```scss
+.Mrphs-sitesNav__submenuitem {
+  .toolMenuIcon {
+    &.icon-sakai--sakai-schedule {
+      @extend .fa-calendar;
+    }
+    
+    &.icon-sakai--sakai-assignment-grades {
+      @extend .fa-tasks;
+    }
+    
+    // Add custom tool icon
+    &.icon-sakai--custom-tool {
+      @extend .fa-star;
+    }
+  }
+}
+```
+
+### Finding Font Awesome Icons
+
+1. Visit [Font Awesome Icon Gallery](https://fontawesome.com/icons)
+2. Search for the icon you want
+3. Use the class name (e.g., `fa-calendar`, `fa-book`, `fa-user`)
+
+<Warning>
+When changing icons, update both the dropdown menu section AND the sidebar menu section to maintain consistency.
+</Warning>
+
+## Customizing Bootstrap Defaults
+
+Edit `/library/src/morpheus-master/sass/base/_bootstrap-defaults.scss` to customize Bootstrap variables.
+
+```scss
+// Uncomment and modify Bootstrap variables
+
+// Colors
+$primary: #005a9c;
+$secondary: #6c757d;
+$success: #28a745;
+$info: #17a2b8;
+$warning: #ffc107;
+$danger: #dc3545;
+
+// Typography
+$font-size-base: 1rem;
+$font-weight-base: 400;
+$line-height-base: 1.5;
+
+// Spacing
+$spacer: 1rem;
+
+// Border radius
+$border-radius: 0.25rem;
+$border-radius-lg: 0.3rem;
+$border-radius-sm: 0.2rem;
+
+// Buttons
+$btn-padding-y: 0.375rem;
+$btn-padding-x: 0.75rem;
+$btn-font-weight: 400;
+```
+
+## Portal Theme Settings
+
+### Theme Switcher (Dark/Light Mode)
+
+```properties
+# Enable user theme preferences
+# DEFAULT: true
+portal.themes=true
+
+# Show dark/light theme switcher in user dropdown
+# DEFAULT: true
+portal.themes.switcher=true
+
+# Enable OS dark theme auto-detection
+# DEFAULT: true
+portal.themes.autoDetectDark=true
+```
+
+From `docker/tomcat/sakai/sakai.properties`:
+```properties
+# Enable theme switcher for testing
+portal.themes.switcher=true
+```
+
+## Adding Custom CSS/JavaScript
+
+For additional customizations beyond SCSS:
+
+### Custom CSS
+
+Create `/library/src/webapp/skin/institution-skin/tool.css`:
+
+```css
+/* Custom CSS overrides */
+.portletBody {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Custom header styling */
+.Mrphs-mainHeader__title {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+```
+
+### Custom JavaScript
+
+Create `/library/src/webapp/skin/institution-skin/skin.js`:
+
+```javascript
+// Custom JavaScript for skin
+(function() {
+  // Add custom behavior
+  console.log('Institution skin loaded');
+})();
+```
+
+## Logo Replacement
+
+1. **Create logo image**: Recommended size 200x50px (PNG with transparency)
+2. **Place in skin directory**: `/library/src/webapp/skin/institution-skin/images/logo.png`
+3. **Update _defaults.scss**:
+
+```scss
+$logo: url('/library/skin/institution-skin/images/logo.png');
+```
+
+4. **Recompile skin**:
+
+```bash
+cd library/
+mvn clean install -Dsakai.skin.target=institution-skin
+```
+
+## Deployment Process
+
+### Step 1: Customize SCSS
+
+Edit files in `/library/src/morpheus-master/sass/`
+
+### Step 2: Compile Skin
+
+```bash
+cd library/
+mvn clean install -Dsakai.skin.target=institution-skin
+```
+
+### Step 3: Deploy to Tomcat
+
+```bash
+# Deploy library component
+mvn clean install sakai:deploy -Dmaven.tomcat.home=$CATALINA_HOME
+```
+
+### Step 4: Configure Default Skin
+
+Edit `sakai.properties` or `local.properties`:
+
+```properties
+skin.default=institution-skin
+```
+
+### Step 5: Restart Tomcat
+
+```bash
+$CATALINA_HOME/bin/shutdown.sh
+$CATALINA_HOME/bin/startup.sh
+```
+
+### Step 6: Clear Browser Cache
+
+For users to see changes:
+1. Clear browser cache
+2. Hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+
+## Multiple Skins
+
+You can create multiple skins for different sites:
+
+```bash
+# Compile multiple skins
+mvn clean install -Dsakai.skin.target=skin-blue
+mvn clean install -Dsakai.skin.target=skin-red
+mvn clean install -Dsakai.skin.target=skin-green
+```
+
+Users can then select skins through Site Info > Edit Site Information > Appearance.
+
+## Advanced Customization
+
+### Tool-Specific Styling
+
+Create tool-specific SCSS in `/library/src/morpheus-master/sass/modules/tool/`:
+
+```scss
+// _assignments.scss - Custom styling for Assignments tool
+.assignmentList {
+  .assignment-title {
+    font-weight: 600;
+    color: var(--sakai-primary-color);
+  }
+  
+  .assignment-due-date {
+    font-style: italic;
+    color: #666;
+  }
+}
+```
+
+### Responsive Design Overrides
+
+```scss
+// Mobile customizations
+@media (max-width: 768px) {
+  .Mrphs-mainHeader__title {
+    font-size: 1.2rem;
+  }
+  
+  .Mrphs-toolsNav__menuitem--link {
+    padding: 0.75rem;
+  }
+}
+
+// Tablet customizations
+@media (min-width: 769px) and (max-width: 1024px) {
+  .Mrphs-container {
+    padding: 0 1rem;
+  }
+}
+```
+
+### Accessibility Enhancements
+
+```scss
+// High contrast mode support
+@media (prefers-contrast: high) {
+  :root {
+    --sakai-primary-color: #000080;
+    --sakai-text-color: #000000;
+    --sakai-background-color: #ffffff;
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+## Troubleshooting
+
+### Skin Not Appearing
+
+1. **Check skin name**: Verify `skin.default` matches compiled skin name
+2. **Clear cache**: Clear browser cache and Sakai cache
+3. **Check deployment**: Ensure skin files are in `$CATALINA_HOME/webapps/library/skin/`
+4. **Check permissions**: Ensure Tomcat can read skin files
+
+### Compilation Errors
+
+```bash
+# Enable Maven debug output
+mvn clean install -X -Dsakai.skin.target=institution-skin
+```
+
+Common issues:
+- **SASS syntax errors**: Check SCSS file syntax
+- **Missing variables**: Ensure all referenced variables are defined
+- **Import errors**: Verify file paths in `@import` statements
+
+### Changes Not Visible
+
+1. **Hard refresh**: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+2. **Clear browser cache**: Completely clear browser cache
+3. **Check file timestamps**: Ensure new files were deployed
+4. **Disable cache**: Use browser developer tools to disable cache
+
+## Best Practices
+
+1. **Use version control**: Keep your customization files in Git
+2. **Document changes**: Comment your SCSS with explanations
+3. **Test thoroughly**: Test on multiple browsers and devices
+4. **Accessibility first**: Ensure sufficient color contrast (WCAG 2.1 AA minimum)
+5. **Performance**: Minimize custom CSS/JS to reduce page load time
+6. **Backup**: Keep backups of working skins before major changes
+7. **Incremental changes**: Make small changes and test frequently
+8. **Use variables**: Define colors and fonts as variables for easy updates
+9. **Mobile-first**: Design for mobile devices first, then scale up
+10. **Validate**: Run CSS validators to catch syntax errors
+
+## Resources
+
+- [Font Awesome Icons](https://fontawesome.com/icons)
+- [Bootstrap Documentation](https://getbootstrap.com/docs/5.2/)
+- [SASS Documentation](https://sass-lang.com/documentation)
+- [Morpheus Video Tutorial](https://www.youtube.com/watch?v=Hx7pQ52mWrc)
+- [WCAG Color Contrast Checker](https://webaim.org/resources/contrastchecker/)
+
+## Related Documentation
+
+- [Sakai Properties Configuration](/deployment/sakai-properties)
+- [Database Configuration](/deployment/database-configuration)

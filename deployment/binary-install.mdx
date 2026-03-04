@@ -1,0 +1,232 @@
+---
+title: Install from Binary
+description: Deploy Sakai LMS using pre-built binary releases
+---
+
+Installing Sakai from binary distributions is the fastest way to get started for production deployments.
+
+## Prerequisites
+
+- Java 17 (for Sakai 24+) or Java 11 (for Sakai 22-23)
+- Apache Tomcat 9 downloaded and extracted
+- MySQL/MariaDB database server running
+
+See [System Requirements](/deployment/requirements) for complete requirements.
+
+## Download Binary Release
+
+Sakai binary releases are available from the official release repository:
+
+```bash
+http://source.sakaiproject.org/release/
+```
+
+### Current Supported Releases
+
+**Sakai 25.1** (Latest):
+```bash
+wget http://source.sakaiproject.org/release/25.1/artifacts/sakai-bin-25.1.tar.gz
+```
+
+**Sakai 23.4** (Maintenance):
+```bash
+wget http://source.sakaiproject.org/release/23.4/artifacts/sakai-bin-23.4.tar.gz
+```
+
+Release information:
+- [Sakai 25.1 Release Notes](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/33232420865/Sakai+25+Release+Notes)
+- [Sakai 23.4 Release Notes](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/32324812801/Sakai+23+Release+Notes)
+
+## Step 1: Extract Binary Package
+
+Extract the downloaded binary package:
+
+```bash
+tar -xzf sakai-bin-25.1.tar.gz
+cd sakai-bin-25.1
+```
+
+The binary package contains:
+- `components/` - Sakai component libraries
+- `lib/` - Shared libraries
+- `webapps/` - Web application archives (WAR files)
+
+## Step 2: Configure Tomcat
+
+<Warning>
+Tomcat must be properly configured for Sakai. Default Tomcat settings are **not** sufficient.
+</Warning>
+
+See the [Tomcat Configuration](/deployment/tomcat-configuration) guide for detailed instructions.
+
+### Required Configuration
+
+1. Set JVM memory and options in `setenv.sh`
+2. Configure database connection in `sakai.properties`
+3. Update `server.xml` for proper encoding and connectors
+
+Refer to the official [Sakai Install Guide](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17310646930/Sakai+21+Install+Guide+Source) for complete configuration steps.
+
+## Step 3: Deploy Binary Files
+
+Copy the binary files to your Tomcat installation:
+
+```bash
+# Set Tomcat home directory
+export TOMCAT_HOME=/path/to/your/tomcat
+
+# Copy components
+cp -r components/* $TOMCAT_HOME/components/
+
+# Copy shared libraries
+cp -r lib/* $TOMCAT_HOME/lib/
+
+# Copy web applications
+cp -r webapps/* $TOMCAT_HOME/webapps/
+```
+
+<Warning>
+Ensure the target directories exist in your Tomcat installation. Create them if necessary:
+```bash
+mkdir -p $TOMCAT_HOME/components
+```
+</Warning>
+
+## Step 4: Configure Database
+
+Create the Sakai database and user:
+
+```sql
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4;
+CREATE USER 'sakai'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Update `sakai.properties` with your database credentials:
+
+```properties
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=your_password
+```
+
+## Step 5: Start Tomcat
+
+Start Tomcat and monitor the startup:
+
+```bash
+cd $TOMCAT_HOME/bin
+./startup.sh && tail -f ../logs/catalina.out
+```
+
+First startup may take several minutes as Sakai initializes the database schema.
+
+## Step 6: Verify Installation
+
+Access Sakai through your browser:
+
+```
+http://localhost:8080/portal
+```
+
+Default credentials:
+- **Username**: `admin`
+- **Password**: `admin`
+
+<Warning>
+Change the default admin password immediately in a production environment.
+</Warning>
+
+## Upgrading from Previous Versions
+
+### Backup First
+
+Before upgrading, always backup:
+
+1. **Database**: 
+   ```bash
+   mysqldump -u sakai -p sakai > sakai_backup.sql
+   ```
+
+2. **Configuration files**:
+   ```bash
+   cp $TOMCAT_HOME/sakai/sakai.properties sakai.properties.backup
+   ```
+
+3. **Custom content** in the content directory
+
+### Upgrade Process
+
+1. Stop Tomcat
+2. Remove old webapps and components
+3. Deploy new binary files
+4. Review configuration changes in release notes
+5. Run any required database conversion scripts
+6. Start Tomcat and test
+
+### Database Conversion Scripts
+
+Conversion scripts for version upgrades are located in:
+```
+http://source.sakaiproject.org/release/VERSION/conversion/
+```
+
+Apply scripts sequentially for your database type.
+
+## Troubleshooting
+
+### Deployment Issues
+
+**WAR files not expanding**:
+- Check `unpackWARs="true"` in `server.xml`
+- Verify file permissions on webapps directory
+- Look for errors in `catalina.out`
+
+**Missing components**:
+```bash
+ls -la $TOMCAT_HOME/components/
+```
+Ensure all component JARs were copied correctly.
+
+### Performance Issues
+
+**Slow startup**:
+- Increase heap memory in `setenv.sh`
+- Check database connection performance
+- Review GC logs for memory issues
+
+**OutOfMemoryError**:
+- Increase `-Xmx` setting in `setenv.sh`
+- Analyze heap dumps to identify memory leaks
+
+## Production Considerations
+
+### Security
+
+- Change default admin password
+- Configure SSL/TLS certificates
+- Restrict access to Tomcat manager
+- Review and configure firewall rules
+
+### Performance
+
+- Tune JVM heap and GC settings
+- Configure database connection pooling
+- Enable HTTP/2 in Tomcat
+- Consider load balancing for high availability
+
+### Monitoring
+
+- Enable JMX for monitoring
+- Configure access logs
+- Set up log rotation
+- Monitor database performance
+
+## Next Steps
+
+- Review [Release Documentation](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17225318626/Release+Documentation)
+- Configure [Tomcat for production](/deployment/tomcat-configuration)
+- Join the [Sakai community](https://www.sakailms.org)

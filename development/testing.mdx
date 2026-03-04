@@ -1,0 +1,543 @@
+---
+title: Testing Guide
+description: Write and run tests for Sakai LMS development
+---
+
+## Testing Strategy
+
+Sakai uses multiple testing approaches:
+
+- **Unit Tests**: Test individual classes and methods (JUnit, Mockito)
+- **Integration Tests**: Test service interactions (Spring Test)
+- **Web Component Tests**: Test frontend components (Web Test Runner, Chai)
+- **E2E Tests**: Test complete user flows (Playwright)
+
+## Java Unit Tests
+
+### JUnit 5 Tests
+
+Write unit tests using JUnit 5:
+
+```java
+package org.sakaiproject.mytool.impl;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+
+@DisplayName("MyToolService Tests")
+class MyToolServiceTest {
+    
+    private MyToolService service;
+    
+    @BeforeEach
+    void setUp() {
+        service = new MyToolServiceImpl();
+    }
+    
+    @Test
+    @DisplayName("Should return data for valid site ID")
+    void testGetDataValidSite() {
+        List<String> data = service.getData("site-123");
+        assertNotNull(data);
+        assertFalse(data.isEmpty());
+    }
+    
+    @Test
+    @DisplayName("Should throw exception for null site ID")
+    void testGetDataNullSite() {
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> service.getData(null)
+        );
+    }
+}
+```
+
+### Mockito for Mocking
+
+Use Mockito to mock dependencies:
+
+```java
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+@ExtendWith(MockitoExtension.class)
+class MyToolServiceImplTest {
+    
+    @Mock
+    private UserDirectoryService userService;
+    
+    @Mock
+    private SecurityService securityService;
+    
+    @InjectMocks
+    private MyToolServiceImpl service;
+    
+    @Test
+    void testGetUserData() {
+        // Arrange
+        User mockUser = mock(User.class);
+        when(mockUser.getId()).thenReturn("user-123");
+        when(userService.getCurrentUser()).thenReturn(mockUser);
+        
+        // Act
+        String userId = service.getCurrentUserId();
+        
+        // Assert
+        assertEquals("user-123", userId);
+        verify(userService).getCurrentUser();
+    }
+}
+```
+
+## Spring Integration Tests
+
+### Test Configuration
+
+Create test configuration class:
+
+```java
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+
+@TestConfiguration
+public class MyToolTestConfiguration {
+    
+    @Bean
+    @Primary
+    public MyToolService myToolService() {
+        return new MyToolServiceImpl();
+    }
+}
+```
+
+### Integration Test
+
+```java
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ContextConfiguration;
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@ContextConfiguration(classes = MyToolTestConfiguration.class)
+class MyToolServiceIntegrationTest {
+    
+    @Autowired
+    private MyToolService service;
+    
+    @Test
+    void testServiceIntegration() {
+        List<String> data = service.getData("site-123");
+        assertNotNull(data);
+    }
+}
+```
+
+## Web Component Tests
+
+### Basic Component Test
+
+Create tests using Web Test Runner and Chai:
+
+```javascript
+import "../sakai-my-component.js";
+import { expect, fixture, html, waitUntil } from "@open-wc/testing";
+
+describe("sakai-my-component tests", () => {
+  
+  it("renders correctly", async () => {
+    const el = await fixture(html`
+      <sakai-my-component site-id="test-site"></sakai-my-component>
+    `);
+
+    expect(el).to.exist;
+    expect(el.siteId).to.equal("test-site");
+  });
+
+  it("is accessible", async () => {
+    const el = await fixture(html`
+      <sakai-my-component></sakai-my-component>
+    `);
+
+    await expect(el).to.be.accessible();
+  });
+});
+```
+
+### Mock Network Calls
+
+Use FetchMock to mock API calls:
+
+```javascript
+import "../sakai-tasks.js";
+import { expect, fixture, html, waitUntil } from "@open-wc/testing";
+import fetchMock from "fetch-mock";
+
+describe("sakai-tasks tests", () => {
+  
+  afterEach(() => fetchMock.restore());
+
+  it("loads tasks from API", async () => {
+    const mockTasks = [
+      { id: 1, title: "Task 1", completed: false },
+      { id: 2, title: "Task 2", completed: true },
+    ];
+    
+    fetchMock.get("/api/tasks?siteId=site-123", mockTasks, {
+      overwriteRoutes: true,
+    });
+
+    const el = await fixture(html`
+      <sakai-tasks site-id="site-123"></sakai-tasks>
+    `);
+
+    await waitUntil(() => el._tasks.length > 0);
+    
+    expect(el._tasks).to.have.lengthOf(2);
+    expect(el._tasks[0].title).to.equal("Task 1");
+  });
+
+  it("handles API errors", async () => {
+    fetchMock.get("/api/tasks?siteId=site-123", 500, {
+      overwriteRoutes: true,
+    });
+
+    const el = await fixture(html`
+      <sakai-tasks site-id="site-123"></sakai-tasks>
+    `);
+
+    await waitUntil(() => el._error !== null);
+    expect(el._error).to.exist;
+  });
+});
+```
+
+### Mock Browser APIs
+
+Use Sinon to mock browser APIs:
+
+```javascript
+import { expect, fixture, html } from "@open-wc/testing";
+import sinon from "sinon";
+
+describe("sakai-notifications tests", () => {
+  
+  it("requests notification permission", async () => {
+    const stub = sinon.stub(Notification, "requestPermission")
+      .resolves("granted");
+
+    const el = await fixture(html`
+      <sakai-notifications></sakai-notifications>
+    `);
+
+    await el.requestPermission();
+    
+    expect(stub.calledOnce).to.be.true;
+    expect(el.permission).to.equal("granted");
+    
+    stub.restore();
+  });
+});
+```
+
+### Test User Interactions
+
+```javascript
+it("handles button click", async () => {
+  const el = await fixture(html`
+    <sakai-my-component></sakai-my-component>
+  `);
+
+  const button = el.shadowRoot.querySelector(".save-button");
+  expect(button).to.exist;
+  
+  button.click();
+  
+  await waitUntil(() => el._saved === true);
+  expect(el._saved).to.be.true;
+});
+
+it("handles input change", async () => {
+  const el = await fixture(html`
+    <sakai-my-component></sakai-my-component>
+  `);
+
+  const input = el.shadowRoot.querySelector("input");
+  input.value = "test value";
+  input.dispatchEvent(new Event("input"));
+  
+  await el.updateComplete;
+  expect(el.inputValue).to.equal("test value");
+});
+```
+
+## Playwright E2E Tests
+
+### Test Structure
+
+Playwright tests are in `e2e-tests/src/test/java/org/sakaiproject/e2e/tests/`:
+
+```java
+package org.sakaiproject.e2e.tests;
+
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+
+import com.microsoft.playwright.Locator;
+import org.junit.jupiter.api.*;
+import org.sakaiproject.e2e.support.SakaiUiTestBase;
+import java.util.List;
+
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+class MyToolTest extends SakaiUiTestBase {
+
+    private static String sakaiUrl;
+
+    @Test
+    @Order(1)
+    void canCreateCourse() {
+        sakai.login("instructor1");
+        sakaiUrl = sakai.createCourse(
+            "instructor1", 
+            List.of("sakai\.mytool")
+        );
+    }
+
+    @Test
+    @Order(2)
+    void canUseTool() {
+        sakai.login("instructor1");
+        sakai.gotoPath(sakaiUrl);
+        sakai.toolClick("My Tool");
+        
+        // Test interactions
+        page.locator("#title").fill("Test Title");
+        page.locator("#save-button").click();
+        
+        // Assert results
+        assertThat(page.locator(".success-message"))
+            .isVisible();
+    }
+}
+```
+
+### Helper Methods
+
+Use `SakaiHelper` methods for common operations:
+
+```java
+// Login
+sakai.login("username");
+
+// Navigate to site
+sakai.gotoPath(sakaiUrl);
+
+// Click tool in navigation
+sakai.toolClick("Tool Name");
+
+// Create course with tools
+String siteUrl = sakai.createCourse(
+    "instructor1",
+    List.of("sakai\.announcements", "sakai\.schedule")
+);
+
+// Select date
+sakai.selectDate("#datepicker", "06/01/2025 08:30 am");
+```
+
+### Run E2E Tests
+
+<CodeGroup>
+```bash All Tests
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export PLAYWRIGHT_BASE_URL=https://localhost:8080
+mvn -f e2e-tests/pom.xml test
+```
+
+```bash Single Test Class
+mvn -f e2e-tests/pom.xml -Dtest=MyToolTest test
+```
+
+```bash Single Test Method
+mvn -f e2e-tests/pom.xml -Dtest=MyToolTest#canUseTool test
+```
+
+```bash Headed Mode (Watch Browser)
+export PLAYWRIGHT_HEADLESS=false
+mvn -f e2e-tests/pom.xml test
+```
+</CodeGroup>
+
+### Test Artifacts
+
+Playwright saves artifacts to `e2e-tests/target/playwright-artifacts/`:
+
+- **Traces**: Full execution traces for debugging
+- **Videos**: Screen recordings of test runs
+- **Screenshots**: Final screenshots on failure
+
+## Running Tests
+
+### Java Unit Tests
+
+<CodeGroup>
+```bash All Tests in Module
+mvn test
+```
+
+```bash Single Test Class
+mvn test -Dtest=TestClassName
+```
+
+```bash Single Test Method
+mvn test -Dtest=TestClassName#testMethodName
+```
+
+```bash Skip Tests
+mvn install -DskipTests
+```
+</CodeGroup>
+
+### Web Component Tests
+
+<CodeGroup>
+```bash All Components
+cd webcomponents/tool/src/main/frontend
+npm run test
+```
+
+```bash Single Component
+cd packages/sakai-my-component
+npm run test
+```
+
+```bash Watch Mode
+npx wtr --watch
+```
+
+```bash Specific Browser
+npx wtr --playwright --browsers chromium
+```
+</CodeGroup>
+
+## Code Coverage
+
+<Note>
+  Web component testing intentionally omits coverage metrics. Focus on testing common user pathways and edge cases rather than chasing coverage percentages.
+</Note>
+
+### Java Coverage with JaCoCo
+
+Generate coverage reports:
+
+```bash
+mvn clean test jacoco:report
+```
+
+View report at `target/site/jacoco/index.html`.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Test Naming">
+    - Use descriptive test names that explain what is being tested
+    - Use `@DisplayName` in Java for readable test output
+    - Follow pattern: `should[ExpectedBehavior]When[StateUnderTest]`
+  </Accordion>
+
+  <Accordion title="Test Independence">
+    - Each test should be independent and isolated
+    - Don't rely on test execution order (except E2E tests)
+    - Clean up resources in `@AfterEach` or `afterEach()`
+    - Use fresh fixtures for each test
+  </Accordion>
+
+  <Accordion title="Test Data">
+    - Use realistic test data
+    - Avoid hard-coded magic values
+    - Create test data factories or builders
+    - Use FetchMock for consistent API responses
+  </Accordion>
+
+  <Accordion title="Assertions">
+    - Use descriptive assertion messages
+    - Assert one thing per test when possible
+    - Test both positive and negative cases
+    - Include accessibility checks for components
+  </Accordion>
+
+  <Accordion title="UI Flow Testing">
+    When changing user-visible UI flows (navigation, forms, submissions, dialogs), add or update a Playwright test in `e2e-tests/src/test/java/org/sakaiproject/e2e/tests`.
+    
+    If a Playwright test is not practical, document why in the PR description.
+  </Accordion>
+</AccordionGroup>
+
+## Test-Driven Development (TDD)
+
+TDD is recommended for component development:
+
+<Steps>
+  <Step title="Write failing test">
+    Write a test that exercises your yet-to-be-written code:
+
+    ```javascript
+    it("should display user name", async () => {
+      const el = await fixture(html`
+        <sakai-user-display user-id="user-123"></sakai-user-display>
+      `);
+      
+      await waitUntil(() => el.userName);
+      expect(el.userName).to.equal("John Doe");
+    });
+    ```
+  </Step>
+
+  <Step title="Run test (it should fail)">
+    ```bash
+    npm run test
+    ```
+  </Step>
+
+  <Step title="Write minimal code to pass">
+    Implement just enough code to make the test pass.
+  </Step>
+
+  <Step title="Refactor">
+    Clean up code while keeping tests green.
+  </Step>
+
+  <Step title="Repeat">
+    Continue the cycle for each new feature.
+  </Step>
+</Steps>
+
+## Continuous Integration
+
+Tests run automatically on:
+
+- **Pull Requests**: All tests must pass before merge
+- **Nightly Builds**: Full test suite on [nightly servers](http://nightly2.sakaiproject.org)
+- **Pre-merge**: Checkstyle and compilation checks
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-branch" href="./contributing">
+    Submit your tested code to Sakai
+  </Card>
+  <Card title="Web Components" icon="code" href="./web-components">
+    Learn more about component development
+  </Card>
+</CardGroup>

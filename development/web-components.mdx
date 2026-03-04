@@ -1,0 +1,562 @@
+---
+title: Web Components Development
+description: Build modern UI components using Lit for Sakai LMS
+---
+
+## Overview
+
+Web components are the **strategic direction** for Sakai frontend development. Sakai uses [Lit](https://lit.dev) to build reusable, encapsulated components with modern JavaScript.
+
+## Architecture
+
+The web components are organized as a monorepo using:
+
+- **[Lerna](https://lerna.js.org/)**: Monorepo management
+- **[NPM Workspaces](https://docs.npmjs.com/cli/v7/using-npm/workspaces)**: Dependency management
+- **[ESBuild](https://esbuild.github.io/)**: Fast bundling
+- **[Web Test Runner](https://modern-web.dev/docs/test-runner/overview/)**: Testing
+- **[ESLint](https://eslint.org/)**: Code linting
+- **[Lit Analyzer](https://www.npmjs.com/package/lit-analyzer)**: Static type checking
+
+### Directory Structure
+
+```
+webcomponents/tool/src/main/frontend/
+├── packages/                  # Individual component packages
+│   ├── sakai-button/
+│   ├── sakai-calendar/
+│   ├── sakai-editor/
+│   └── .../
+├── bundle-entry-points/       # Bundle configurations
+├── bundles/                   # Generated bundles
+├── node_modules/              # Shared dependencies
+├── package.json               # Workspace configuration
+└── web-test-runner.config.js  # Test configuration
+```
+
+## Base Classes
+
+### SakaiElement
+
+Base class for components that render to the light DOM:
+
+```javascript
+import { SakaiElement } from '@sakai-ui/sakai-element';
+import { html } from 'lit';
+
+export class MyComponent extends SakaiElement {
+  
+  static properties = {
+    siteId: { type: String, attribute: "site-id" },
+    data: { type: Array },
+  };
+
+  constructor() {
+    super();
+    this.siteId = "";
+    this.data = [];
+  }
+
+  render() {
+    return html`
+      <div class="my-component">
+        <h2>${this.tr("component_title")}</h2>
+        ${this.data.map(item => html`
+          <div class="item">${item.name}</div>
+        `)}
+      </div>
+    `;
+  }
+}
+
+customElements.define("my-component", MyComponent);
+```
+
+### SakaiShadowElement
+
+Base class for components using Shadow DOM:
+
+```javascript
+import { SakaiShadowElement } from '@sakai-ui/sakai-element';
+import { html, css } from 'lit';
+
+export class MyShadowComponent extends SakaiShadowElement {
+  
+  static styles = css`
+    :host {
+      display: block;
+      padding: 1rem;
+    }
+    
+    .button {
+      background-color: var(--sakai-primary-color);
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+    }
+  `;
+
+  render() {
+    return html`
+      <button class="button">
+        <slot></slot>
+      </button>
+    `;
+  }
+}
+
+customElements.define("my-shadow-component", MyShadowComponent);
+```
+
+## Creating a New Component
+
+<Steps>
+  <Step title="Create package directory">
+    ```bash
+    cd webcomponents/tool/src/main/frontend/packages
+    mkdir sakai-my-component
+    cd sakai-my-component
+    ```
+  </Step>
+
+  <Step title="Create package.json">
+    ```json
+    {
+      "name": "@sakai-ui/sakai-my-component",
+      "version": "1.0.0",
+      "description": "My Sakai component",
+      "main": "src/SakaiMyComponent.js",
+      "license": "ECL-2.0",
+      "dependencies": {
+        "@sakai-ui/sakai-element": "file:../sakai-element",
+        "lit": "^3.2.1"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Create component source">
+    Create `src/SakaiMyComponent.js`:
+
+    ```javascript
+    import { SakaiElement } from '@sakai-ui/sakai-element';
+    import { html } from 'lit';
+
+    export class SakaiMyComponent extends SakaiElement {
+      
+      static properties = {
+        siteId: { type: String, attribute: "site-id" },
+      };
+
+      constructor() {
+        super();
+        this.siteId = "";
+        this.loadTranslations("my-component");
+      }
+
+      async connectedCallback() {
+        super.connectedCallback();
+        await this.loadData();
+      }
+
+      async loadData() {
+        const url = `/api/sites/${this.siteId}/data`;
+        const response = await fetch(url);
+        this.data = await response.json();
+      }
+
+      render() {
+        return html`
+          <div class="sakai-my-component">
+            <h2>${this.tr("title")}</h2>
+            <!-- Component content -->
+          </div>
+        `;
+      }
+    }
+
+    customElements.define("sakai-my-component", SakaiMyComponent);
+    ```
+  </Step>
+
+  <Step title="Create entry point">
+    Create `sakai-my-component.js`:
+
+    ```javascript
+    export { SakaiMyComponent } from "./src/SakaiMyComponent.js";
+    ```
+  </Step>
+
+  <Step title="Create i18n strings">
+    Create `src/i18n/my-component.properties`:
+
+    ```properties
+    title=My Component
+    save=Save
+    cancel=Cancel
+    ```
+  </Step>
+
+  <Step title="Create tests">
+    Create `test/sakai-my-component.test.js` (see [Testing](#testing) section).
+  </Step>
+</Steps>
+
+## Reactive Properties
+
+Define reactive properties that trigger re-renders:
+
+```javascript
+static properties = {
+  // Public properties (attributes)
+  siteId: { type: String, attribute: "site-id" },
+  count: { type: Number },
+  enabled: { type: Boolean },
+  
+  // Internal state (no attribute)
+  _data: { type: Array, state: true },
+  _loading: { type: Boolean, state: true },
+};
+```
+
+<Info>
+  Prefix internal reactive state with `_` and use `state: true` instead of `attribute`.
+</Info>
+
+## Internationalization
+
+### Load Translations
+
+```javascript
+constructor() {
+  super();
+  this.loadTranslations("my-component").then(r => this.i18n = r);
+}
+```
+
+### Use Translations
+
+```javascript
+render() {
+  return html`
+    <h2>${this.tr("title")}</h2>
+    <button>${this.tr("save_button")}</button>
+  `;
+}
+```
+
+### Translation Files
+
+Create property files for each locale:
+
+```
+src/i18n/
+├── my-component.properties        # English (default)
+├── my-component_es_ES.properties  # Spanish
+├── my-component_fr_FR.properties  # French
+└── my-component_ja_JP.properties  # Japanese
+```
+
+## Styling
+
+### Bootstrap Classes
+
+Use Bootstrap 5.2 classes:
+
+```javascript
+render() {
+  return html`
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6">
+          <button class="btn btn-primary">
+            ${this.tr("save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+```
+
+### Custom Styles (Shadow DOM)
+
+For Shadow DOM components:
+
+```javascript
+import { css } from 'lit';
+
+static styles = css`
+  :host {
+    display: block;
+  }
+  
+  .container {
+    padding: 1rem;
+  }
+  
+  button {
+    background-color: var(--sakai-primary-color);
+  }
+`;
+```
+
+### CSS Variables
+
+Use Sakai CSS custom properties:
+
+```css
+var(--sakai-primary-color)
+var(--sakai-secondary-color)
+var(--sakai-background-color)
+var(--sakai-text-color)
+var(--sakai-border-color)
+```
+
+## Data Fetching
+
+### Fetch API
+
+Use modern `fetch` with async/await:
+
+```javascript
+async loadData() {
+  try {
+    this._loading = true;
+    const response = await fetch(`/api/sites/${this.siteId}/data`, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    this._data = await response.json();
+  } catch (error) {
+    console.error("Failed to load data:", error);
+  } finally {
+    this._loading = false;
+  }
+}
+```
+
+### POST Requests
+
+```javascript
+async saveData(data) {
+  const response = await fetch(`/api/sites/${this.siteId}/data`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  
+  return response.json();
+}
+```
+
+## Event Handling
+
+### Emit Custom Events
+
+```javascript
+handleSave() {
+  const event = new CustomEvent("item-saved", {
+    detail: { itemId: this.itemId },
+    bubbles: true,
+    composed: true,
+  });
+  this.dispatchEvent(event);
+}
+```
+
+### Listen to Events
+
+```javascript
+render() {
+  return html`
+    <button @click=${this.handleClick}>
+      Click Me
+    </button>
+    <input @input=${this.handleInput} />
+  `;
+}
+
+handleClick(e) {
+  console.log("Button clicked");
+}
+
+handleInput(e) {
+  this.value = e.target.value;
+}
+```
+
+## Testing
+
+### Create Test File
+
+Create `test/sakai-my-component.test.js`:
+
+```javascript
+import "../sakai-my-component.js";
+import { expect, fixture, html, waitUntil } from "@open-wc/testing";
+import fetchMock from "fetch-mock";
+
+describe("sakai-my-component tests", () => {
+  
+  afterEach(() => fetchMock.restore());
+
+  it("renders correctly", async () => {
+    const el = await fixture(html`
+      <sakai-my-component site-id="test-site"></sakai-my-component>
+    `);
+
+    expect(el).to.exist;
+    await expect(el).to.be.accessible();
+  });
+
+  it("loads data from API", async () => {
+    const mockData = [{ id: 1, name: "Test" }];
+    
+    fetchMock.get("/api/sites/test-site/data", mockData, {
+      overwriteRoutes: true,
+    });
+
+    const el = await fixture(html`
+      <sakai-my-component site-id="test-site"></sakai-my-component>
+    `);
+
+    await waitUntil(() => el._data.length > 0);
+    expect(el._data).to.deep.equal(mockData);
+  });
+
+  it("handles button click", async () => {
+    const el = await fixture(html`
+      <sakai-my-component></sakai-my-component>
+    `);
+
+    const button = el.shadowRoot.querySelector("button");
+    button.click();
+    
+    // Assert expected behavior
+  });
+});
+```
+
+### Run Tests
+
+```bash
+cd webcomponents/tool/src/main/frontend
+npm run test
+```
+
+### Run Tests in Watch Mode
+
+```bash
+npx wtr --watch
+```
+
+## Development Commands
+
+### Linting
+
+<CodeGroup>
+```bash Check All
+npm run lint
+```
+
+```bash Auto-fix
+npm run lintfix
+```
+
+```bash Single Component
+cd packages/sakai-my-component
+npm run lint
+```
+</CodeGroup>
+
+### Type Checking
+
+```bash
+npm run analyze
+```
+
+### Bundling
+
+```bash
+npm run bundle
+```
+
+### Bundle Analysis
+
+```bash
+npm run analyze-bundle
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Modern JavaScript">
+    - Use ES2022+ features (async/await, optional chaining, nullish coalescing)
+    - Target evergreen browsers only
+    - No jQuery - use native DOM APIs
+    - Use `fetch` with keepalive support
+  </Accordion>
+
+  <Accordion title="Component Encapsulation">
+    - Keep internal state prefixed with `_`
+    - Use getters/setters for computed properties
+    - Avoid global variables
+    - Prefer module scope or class fields
+  </Accordion>
+
+  <Accordion title="Accessibility">
+    - Use semantic HTML
+    - Add ARIA labels where needed
+    - Ensure keyboard navigation works
+    - Test with screen readers
+    - Use `await expect(el).to.be.accessible()` in tests
+  </Accordion>
+
+  <Accordion title="Performance">
+    - Lazy load components when possible
+    - Use `requestAnimationFrame` for animations
+    - Debounce expensive operations
+    - Minimize re-renders
+  </Accordion>
+</AccordionGroup>
+
+## Integration with Sakai Tools
+
+### Use in JSP/ThymeLeaf
+
+```jsp
+<!-- Include bundle -->
+<script type="module" src="/webcomponents/bundles/my-component.js"></script>
+
+<!-- Use component -->
+<sakai-my-component site-id="${siteId}"></sakai-my-component>
+```
+
+### Pass Data to Components
+
+```jsp
+<sakai-my-component 
+  site-id="${siteId}"
+  user-id="${currentUser.id}"
+  data='${jsonData}'>
+</sakai-my-component>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="vial" href="./testing">
+    Learn to write comprehensive tests
+  </Card>
+  <Card title="Contributing" icon="code-branch" href="./contributing">
+    Submit your components to Sakai
+  </Card>
+</CardGroup>

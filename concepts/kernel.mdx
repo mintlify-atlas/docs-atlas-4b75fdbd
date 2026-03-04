@@ -1,0 +1,366 @@
+---
+title: Kernel Services
+description: Core kernel services and APIs that provide foundational functionality for all Sakai tools
+---
+
+# Kernel Services
+
+The Sakai Kernel provides essential services that are used throughout the platform. These services handle core functionality like user management, authorization, content hosting, and event tracking.
+
+<Note>
+All tools should use kernel services for core functionality rather than implementing their own user management, authorization, or content storage systems.
+</Note>
+
+## What is the Kernel?
+
+The Kernel contains the basic services that are used throughout Sakai. It provides:
+
+- **API layer**: Service interfaces defining contracts
+- **Implementation layer**: Concrete implementations of services
+- **Component Manager**: Spring-based service wiring and lifecycle management
+- **Utility classes**: Common utilities like `FormattedText`
+
+Reference: [kernel/README.md:1-53](/home/daytona/workspace/source/kernel/README.md:1-53)
+
+## Core Kernel Services
+
+### User Management Services
+
+#### UserDirectoryService
+
+Manages end-user modeling for Sakai including user creation, lookup, and authentication.
+
+<CodeGroup>
+
+```java UserDirectoryService API
+package org.sakaiproject.user.api;
+
+public interface UserDirectoryService extends EntityProducer {
+    /** Reference root for user resources */
+    static final String REFERENCE_ROOT = "/user";
+    
+    /** Admin user ID */
+    static final String ADMIN_ID = "admin";
+    
+    // Security permissions
+    static final String SECURE_ADD_USER = "user.add";
+    static final String SECURE_REMOVE_USER = "user.del";
+    static final String SECURE_UPDATE_USER_ANY = "user.upd.any";
+    static final String SECURE_UPDATE_USER_OWN = "user.upd.own";
+}
+```
+
+```java Using UserDirectoryService
+// Get the service
+UserDirectoryService userService = 
+    ComponentManager.get(UserDirectoryService.class);
+
+// Get current user
+User currentUser = userService.getCurrentUser();
+
+// Get user by ID
+User user = userService.getUser(userId);
+
+// Get user by enterprise ID
+User user = userService.getUserByEid(userEid);
+```
+
+</CodeGroup>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/user/api/UserDirectoryService.java:32-80](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/user/api/UserDirectoryService.java:32-80)
+
+### Authorization Services
+
+#### AuthzGroupService
+
+Manages authorization groups (realms) and checks if users are allowed to perform specific functions in a context.
+
+```java
+package org.sakaiproject.authz.api;
+
+public interface AuthzGroupService extends EntityProducer {
+    /** Reference root for authz resources */
+    static final String REFERENCE_ROOT = "/realm";
+    
+    /** Standard role names */
+    static final String ANON_ROLE = ".anon";  // Anonymous role
+    static final String AUTH_ROLE = ".auth";  // Authenticated role
+    
+    /** Security permissions */
+    static final String SECURE_ADD_AUTHZ_GROUP = "realm.add";
+    static final String SECURE_UPDATE_AUTHZ_GROUP = "realm.upd";
+    static final String SECURE_REMOVE_AUTHZ_GROUP = "realm.del";
+}
+```
+
+<Info>
+The `AuthzGroupService` doesn't automatically validate that user IDs are still valid. If you need to ensure a user exists, check with `UserDirectoryService`.
+</Info>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/authz/api/AuthzGroupService.java:33-80](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/authz/api/AuthzGroupService.java:33-80)
+
+### Site Management Services
+
+#### SiteService
+
+Manages Sakai sites (workspaces, course sites, project sites).
+
+<CodeGroup>
+
+```java SiteService Constants
+package org.sakaiproject.site.api;
+
+public interface SiteService extends EntityProducer {
+    /** Application ID */
+    static final String APPLICATION_ID = "sakai:site";
+    
+    /** Entity reference subtypes */
+    static final String SITE_SUBTYPE = "site";
+    static final String GROUP_SUBTYPE = "group";
+    static final String PAGE_SUBTYPE = "page";
+    static final String TOOL_SUBTYPE = "tool";
+    
+    /** Event names */
+    static final String SITE_VISIT = "site.visit";
+    static final String SECURE_ADD_SITE = "site.add";
+    static final String SECURE_ADD_COURSE_SITE = "site.add.course";
+    static final String SECURE_REMOVE_SITE = "site.del";
+}
+```
+
+```java Working with Sites
+// Get the service
+SiteService siteService = ComponentManager.get(SiteService.class);
+
+// Get a site by ID
+Site site = siteService.getSite(siteId);
+
+// Get site title and description
+String title = site.getTitle();
+String description = site.getDescription();
+
+// Get pages in the site
+List<SitePage> pages = site.getPages();
+
+// Check if site is published
+boolean isPublished = site.isPublished();
+```
+
+</CodeGroup>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/site/api/SiteService.java:42-100](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/site/api/SiteService.java:42-100)
+
+### Content Management Services
+
+#### ContentHostingService
+
+Manages shared content resources and collections, based on WebDAV terminology.
+
+```java
+package org.sakaiproject.content.api;
+
+/**
+ * ContentHostingService manages resources (files) and collections (folders).
+ * Resources have:
+ * - Resource ID (URI)
+ * - Media type (MIME type like image/gif, text/html)
+ * - Properties (name-value pairs)
+ * - Content (file data)
+ */
+public interface ContentHostingService extends EntityProducer {
+    // Resource management methods
+    // Collection management methods
+    // Property management methods
+}
+```
+
+<Note>
+**Key Concepts:**
+- **Resource**: A file with media type, ID, and properties
+- **Collection**: A folder containing resources (also a resource itself)
+- **Properties**: WebDAV-style name-value pairs ("live" generated by system, "dead" user-maintained)
+</Note>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/content/api/ContentHostingService.java:56-80](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/content/api/ContentHostingService.java:56-80)
+
+### Event Tracking Services
+
+#### EventTrackingService
+
+Provides activity event tracking and monitoring throughout Sakai.
+
+<CodeGroup>
+
+```java EventTrackingService Interface
+package org.sakaiproject.event.api;
+
+/**
+ * The event tracking service provides:
+ * - Event posting by generators
+ * - Event monitoring and notification
+ * - Event archival storage
+ */
+public interface EventTrackingService {
+    static final String UNKNOWN_USER = "?";
+    
+    /**
+     * Construct an Event object.
+     * 
+     * @param event The Event id
+     * @param resource The resource reference
+     * @param modify true if event caused modification, false for access
+     * @return A new Event object
+     */
+    Event newEvent(String event, String resource, boolean modify);
+}
+```
+
+```java Posting Events
+// Get the service
+EventTrackingService eventService = 
+    ComponentManager.get(EventTrackingService.class);
+
+// Create and post an event
+Event event = eventService.newEvent(
+    "assignment.submit",
+    "/assignment/a/12345/s/67890",
+    true  // This is a modification
+);
+eventService.post(event);
+```
+
+</CodeGroup>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/event/api/EventTrackingService.java:30-80](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/event/api/EventTrackingService.java:30-80)
+
+## Complete List of Kernel Services
+
+The kernel provides implementations for these core services:
+
+<Accordion title="View All Kernel Services">
+
+| Service | Package | Purpose |
+|---------|---------|----------|
+| Alias | `org.sakaiproject.alias` | Manage resource aliases |
+| Antivirus | `org.sakaiproject.antivirus` | Virus scanning for uploads |
+| Authz | `org.sakaiproject.authz` | Authorization and permissions |
+| Cluster | `org.sakaiproject.cluster` | Cluster management |
+| Component | `org.sakaiproject.component` | Component/service wiring |
+| Conditions | `org.sakaiproject.conditions` | Conditional release |
+| ConfigStore | `org.sakaiproject.config` | Configuration storage |
+| Content | `org.sakaiproject.content` | Content hosting (files) |
+| DB | `org.sakaiproject.db` | Database access |
+| Email | `org.sakaiproject.email` | Email sending |
+| Entity | `org.sakaiproject.entity` | Entity management |
+| Event | `org.sakaiproject.event` | Event tracking |
+| Memory | `org.sakaiproject.memory` | Caching services |
+| MessageBundle | `org.sakaiproject.messagebundle` | i18n message bundles |
+| Messaging | `org.sakaiproject.messaging` | Messaging/notifications |
+| Site | `org.sakaiproject.site` | Site management |
+| Tasks | `org.sakaiproject.tasks` | Task management |
+| Time | `org.sakaiproject.time` | Time/date utilities |
+| Tool | `org.sakaiproject.tool` | Tool registration |
+| User | `org.sakaiproject.user` | User management |
+
+</Accordion>
+
+Reference: [kernel/README.md:12-33](/home/daytona/workspace/source/kernel/README.md:12-33)
+
+## Service Implementation Pattern
+
+Each kernel service follows this structure:
+
+```
+kernel/
+├── api/
+│   └── src/main/java/org/sakaiproject/{service}/api/
+│       ├── {Service}Service.java        # Service interface
+│       └── {Service}.java               # Domain objects
+├── kernel-impl/
+│   └── src/main/java/org/sakaiproject/{service}/impl/
+│       └── {Service}ServiceImpl.java    # Implementation
+│   └── src/main/webapp/WEB-INF/
+│       └── {service}-components.xml     # Spring wiring
+```
+
+### Example: Site Service Wiring
+
+```xml
+<!-- site-components.xml -->
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans">
+    
+    <bean id="org.sakaiproject.site.api.SiteService"
+          class="org.sakaiproject.site.impl.SiteServiceImpl"
+          init-method="init"
+          destroy-method="destroy">
+        
+        <!-- Inject dependencies -->
+        <property name="sqlService" 
+                  ref="org.sakaiproject.db.api.SqlService"/>
+        <property name="entityManager" 
+                  ref="org.sakaiproject.entity.api.EntityManager"/>
+        <property name="authzGroupService" 
+                  ref="org.sakaiproject.authz.api.AuthzGroupService"/>
+    </bean>
+    
+</beans>
+```
+
+## Utility Classes
+
+The kernel also provides common utility classes:
+
+### FormattedText
+
+One of the most commonly used utilities for processing and sanitizing HTML:
+
+```java
+FormattedText formattedText = ComponentManager.get(FormattedText.class);
+
+// Convert plain text to HTML
+String html = formattedText.convertPlaintextToFormattedText(plainText);
+
+// Process and sanitize HTML
+String clean = formattedText.processFormattedText(dirtyHtml, new StringBuilder());
+
+// Escape HTML
+String escaped = formattedText.escapeHtml(text, true);
+```
+
+Reference: [kernel/README.md:42](/home/daytona/workspace/source/kernel/README.md:42)
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Kernel Services" icon="check">
+    Always use kernel services for user management, authorization, content storage, and email rather than implementing your own.
+  </Card>
+  
+  <Card title="Service Location" icon="location-dot">
+    Access services via `ComponentManager.get()` rather than direct instantiation.
+  </Card>
+  
+  <Card title="Transaction Management" icon="database">
+    Use Spring transaction management for database operations.
+  </Card>
+  
+  <Card title="Event Posting" icon="bell">
+    Post events for significant user actions to enable analytics and integration.
+  </Card>
+</CardGroup>
+
+<Warning>
+**New core services should be added to the kernel**, not to individual tools. If you're implementing functionality that multiple tools need, consider creating a new kernel service.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tool Architecture" href="/concepts/tools" icon="screwdriver-wrench">
+    Learn how to build tools using kernel services
+  </Card>
+  <Card title="Sites & Workspaces" href="/concepts/sites-and-workspaces" icon="sitemap">
+    Understand sites, pages, and tool placement
+  </Card>
+</CardGroup>

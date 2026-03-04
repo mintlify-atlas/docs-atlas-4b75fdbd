@@ -1,0 +1,203 @@
+---
+title: Install from Source
+description: Build and deploy Sakai LMS from source code
+---
+
+This guide walks through building and deploying Sakai from source code.
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- Java 17 (for Sakai 24+) or Java 11 (for Sakai 22-23)
+- Maven 3.9+ or use the included Maven wrapper
+- Apache Tomcat 9 downloaded and extracted
+- MySQL/MariaDB database server running
+
+See [System Requirements](/deployment/requirements) for full details.
+
+## Quick Start
+
+For a complete installation guide, see the [Sakai Install Guide](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17310646930/Sakai+21+Install+Guide+Source) on the Sakai wiki.
+
+## Step 1: Clone the Repository
+
+Clone the Sakai source code from GitHub:
+
+```bash
+git clone https://github.com/sakaiproject/sakai.git
+cd sakai
+```
+
+### Choose a Branch or Release
+
+```bash
+# For latest development version
+git checkout master
+
+# For a specific release
+git checkout 25.1
+```
+
+Available branches:
+- `master` - Sakai 24 development
+- `25.1` - Latest stable release
+- `23.4` - Maintenance release
+
+## Step 2: Build Sakai
+
+Build Sakai using Maven:
+
+```bash
+mvn install
+```
+
+Or if you don't have Maven installed:
+
+```bash
+./mvnw install
+```
+
+<Warning>
+The initial build downloads many dependencies and may take 15-30 minutes. Subsequent builds will be faster.
+</Warning>
+
+### Build Options
+
+**Skip tests** (faster build):
+```bash
+mvn install -Dmaven.test.skip=true
+```
+
+**Parallel build** (faster on multi-core systems):
+```bash
+mvn install -T 1C
+```
+
+**Clean build** (remove previous artifacts):
+```bash
+mvn clean install
+```
+
+## Step 3: Configure Tomcat
+
+<Warning>
+You **must** configure Tomcat according to the official Sakai Install Guide before deploying. Sakai will not work with default Tomcat settings.
+</Warning>
+
+See the [Tomcat Configuration](/deployment/tomcat-configuration) guide for detailed setup instructions.
+
+Key configuration files:
+- `setenv.sh` - JVM memory and options
+- `server.xml` - Tomcat server configuration
+- `sakai.properties` - Sakai-specific settings
+
+## Step 4: Deploy to Tomcat
+
+Deploy the built Sakai artifacts to Tomcat:
+
+```bash
+mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/your/tomcat
+```
+
+Replace `/path/to/your/tomcat` with your actual Tomcat installation path.
+
+### Alternative: Deploy Exploded (Development)
+
+For development with faster redeployment:
+
+```bash
+mvn clean install sakai:deploy-exploded -Dmaven.tomcat.home=/path/to/your/tomcat
+```
+
+## Step 5: Start Tomcat
+
+Start Tomcat and monitor the logs:
+
+```bash
+cd /path/to/your/tomcat/bin
+./startup.sh && tail -f ../logs/catalina.out
+```
+
+Sakai typically takes 30-60 seconds to start up.
+
+## Step 6: Access Sakai
+
+Once startup is complete, open your browser and navigate to:
+
+```
+http://localhost:8080/portal
+```
+
+Default admin credentials:
+- **Username**: `admin`
+- **Password**: `admin`
+
+<Warning>
+Change the default admin password immediately after first login.
+</Warning>
+
+## Troubleshooting
+
+### Build Failures
+
+**OutOfMemoryError during build**:
+```bash
+export MAVEN_OPTS="-Xmx2g -XX:MaxPermSize=512m"
+mvn clean install
+```
+
+**Dependency download failures**:
+- Check your internet connection
+- Try clearing Maven cache: `rm -rf ~/.m2/repository`
+
+### Deployment Issues
+
+**Tomcat won't start**:
+- Check `catalina.out` for error messages
+- Verify JVM settings in `setenv.sh`
+- Ensure ports 8080 and 8005 are not in use
+
+**Database connection errors**:
+- Verify database is running
+- Check connection settings in `sakai.properties`
+- Ensure database user has proper permissions
+
+## Development Workflow
+
+### Building a Single Module
+
+```bash
+cd assignment
+mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/tomcat
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+mvn test
+
+# Run specific test class
+mvn test -Dtest=TestClassName
+
+# Run specific test method
+mvn test -Dtest=TestClassName#testMethodName
+```
+
+### Frontend Development
+
+For web components development:
+
+```bash
+cd webcomponents/tool/src/main/frontend
+npm install
+npm run lint
+npm run bundle
+```
+
+## Next Steps
+
+- [Configure Tomcat](/deployment/tomcat-configuration) for production settings
+- Review the [official Sakai documentation](https://sakaiproject.atlassian.net/wiki/spaces/DOC)
+- Join the [Sakai community](https://apereo.slack.com)

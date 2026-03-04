@@ -1,0 +1,123 @@
+---
+title: System Requirements
+description: Hardware and software requirements for deploying Sakai LMS
+---
+
+Before installing Sakai, ensure your system meets the following requirements.
+
+## Java Requirements
+
+Sakai requires Java Development Kit (JDK) for building and running:
+
+- **Java 17** - Required for Sakai 24+ (trunk/master)
+- **Java 11** - Required for Sakai 22 and Sakai 23
+- **Java 1.8** - Required for older versions
+
+<Warning>
+Ensure you have the correct Java version for your Sakai release. The build will fail if using an incompatible Java version.
+</Warning>
+
+## Build Tools
+
+### Maven
+
+Sakai uses Apache Maven for building:
+
+- **Maven 3.9+** recommended
+- Alternatively, use the included Maven wrapper: `./mvnw`
+
+### Build Environment
+
+- **Memory**: Minimum 4GB RAM for building
+- **Disk Space**: At least 10GB free space for source code and build artifacts
+
+## Runtime Requirements
+
+### Application Server
+
+- **Apache Tomcat 9** - Required for running Sakai
+- Must be downloaded from http://tomcat.apache.org
+
+<Warning>
+Sakai does **not** work with Tomcat installed via package managers (apt-get, yum, etc.). You must download and extract the binary distribution from Apache.
+</Warning>
+
+### Memory Requirements
+
+Recommended JVM settings for production:
+
+- **Heap Memory**: `-Xms2g -Xmx2g` (2GB minimum, adjust based on load)
+- **New Generation**: `-XX:NewSize=500m -XX:MaxNewSize=500m`
+- **Garbage Collector**: G1GC (`-XX:+UseG1GC`)
+
+### Database
+
+Sakai requires a database server:
+
+- **MySQL 5.7+** or **MariaDB 10.x** (recommended)
+- **Oracle Database** (supported)
+- **PostgreSQL** (supported)
+
+For MariaDB/MySQL:
+- Use `--lower-case-table-names=1` configuration
+- UTF-8 character encoding required
+- InnoDB storage engine
+
+## Docker Requirements
+
+For Docker-based deployment:
+
+- **Docker Engine** - Latest version
+- **Docker Compose** (optional, for multi-container setups)
+- **4GB+ RAM** allocated to Docker
+- **20GB+ disk space** for images and containers
+
+### Quick Docker Installation (Linux)
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+## Network Requirements
+
+- **Port 8080** - Default HTTP port for Tomcat
+- **Port 8443** - Default HTTPS port (if SSL configured)
+- **Port 3306** - Default MySQL/MariaDB port
+- **Port 8005** - Tomcat shutdown port
+
+## Operating System
+
+Sakai runs on any platform that supports Java:
+
+- **Linux** (Ubuntu, RHEL/CentOS, Debian) - Recommended for production
+- **macOS** - Suitable for development
+- **Windows** - Supported with PowerShell
+
+## Browser Requirements
+
+For end users accessing Sakai:
+
+- Modern evergreen browsers (auto-updating)
+- **Chrome** (current version)
+- **Firefox** (current version)
+- **Safari** (current version)
+- **Edge** (current version)
+
+Sakai targets ES2022+ JavaScript features and assumes modern browser APIs.
+
+## Optional Components
+
+### Search
+
+- **Elasticsearch** - Required if search functionality is enabled
+
+### Email
+
+- **SMTP server** - For outgoing email
+- Default SMTP port: 8025 (configurable)
+
+### SSL/TLS
+
+- **SSL certificate** - For HTTPS connections
+- Configure in Tomcat's `server.xml`

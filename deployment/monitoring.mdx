@@ -1,0 +1,359 @@
+---
+title: Monitoring and Logging
+description: Configure monitoring, logging, and observability for Sakai LMS in production environments
+---
+
+## Overview
+
+Effective monitoring and logging are critical for maintaining a healthy Sakai LMS deployment. This guide covers log configuration, monitoring strategies, and performance metrics.
+
+## Logging Configuration
+
+### Log4j Configuration
+
+Sakai uses Log4j for application logging. Configure logging levels in `sakai.properties`:
+
+```properties
+# Enable log configuration
+log.config.count = 3
+log.config.1 = INFO.org.sakaiproject
+log.config.2 = WARN.org.hibernate
+log.config.3 = ERROR.org.springframework
+```
+
+### Database Query Logging
+
+For debugging database performance issues:
+
+```properties
+# Show SQL queries (disable in production)
+hibernate.show_sql=false
+hibernate.generate_statistics=false
+
+# Enable for debugging only
+#log.config.1 = DEBUG.org.hibernate.SQL
+#log.config.2 = INFO.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener
+```
+
+<Warning>
+Never enable `hibernate.show_sql=true` in production as it significantly impacts performance and fills logs with sensitive data.
+</Warning>
+
+### Application Logs
+
+Log files are located in `$TOMCAT_HOME/logs/`:
+
+- `catalina.out` - Main Tomcat log
+- `localhost_access_log.*.txt` - HTTP access logs
+- `sakai.log` - Application-specific logs
+
+### Log Rotation
+
+Configure logrotate to prevent disk space issues:
+
+```bash
+/path/to/tomcat/logs/catalina.out {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+```
+
+## Performance Monitoring
+
+### JVM Monitoring
+
+#### Heap Memory Settings
+
+Configure appropriate heap sizes in `setenv.sh`:
+
+```bash
+export JAVA_OPTS="-server -Xmx8g -Xms8g -XX:+UseG1GC"
+export JAVA_OPTS="$JAVA_OPTS -XX:+HeapDumpOnOutOfMemoryError"
+export JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=/path/to/dumps"
+```
+
+<Note>
+Allocate 50-60% of system RAM to JVM heap. Leave remaining memory for OS file system caching and other processes.
+</Note>
+
+#### Garbage Collection Monitoring
+
+Enable GC logging:
+
+```bash
+export JAVA_OPTS="$JAVA_OPTS -Xlog:gc*:file=/path/to/logs/gc.log:time,uptime:filecount=5,filesize=100M"
+```
+
+### Database Connection Pool Monitoring
+
+Monitor database connections in `sakai.properties`:
+
+```properties
+# Connection pool settings
+initialSize@javax.sql.BaseDataSource=10
+maxTotal@javax.sql.BaseDataSource=100
+maxIdle@javax.sql.BaseDataSource=50
+minIdle@javax.sql.BaseDataSource=10
+maxWaitMillis@javax.sql.BaseDataSource=30000
+
+# Validation
+validationQuery@javax.sql.BaseDataSource=SELECT 1 FROM DUAL
+testOnBorrow@javax.sql.BaseDataSource=true
+testWhileIdle@javax.sql.BaseDataSource=true
+```
+
+### Ignite Cache Monitoring
+
+Sakai uses Apache Ignite for distributed caching. Monitor cache performance:
+
+```properties
+# Enable Ignite metrics (development only)
+ignite.metricsLogFrequency=60000
+```
+
+View cache statistics via JMX or command line:
+
+```bash
+$IGNITE_HOME/bin/control.sh --cache list
+$IGNITE_HOME/bin/control.sh --cache distribution
+```
+
+## Application Performance Metrics
+
+### Event Tracking
+
+Sakai tracks user events for analytics. Configure in `sakai.properties`:
+
+```properties
+# Enable detailed event tracking
+event.trackEvents=true
+event.maxBatchSize=100
+```
+
+### Site Statistics
+
+Configure site statistics collection:
+
+```properties
+# Enable site statistics
+stats.enabled=true
+stats.db.driver=
+stats.db.url=
+stats.db.username=
+stats.db.password=
+```
+
+<Note>
+Consider using a separate database for site statistics to avoid impacting main database performance.
+</Note>
+
+## System Health Checks
+
+### HTTP Health Endpoint
+
+Create a simple health check endpoint for load balancers:
+
+```bash
+# Test Sakai availability
+curl -I http://localhost:8080/portal
+```
+
+Expected response:
+```
+HTTP/1.1 200 OK
+```
+
+### Database Connectivity
+
+Test database connections:
+
+```sql
+-- MySQL/MariaDB
+SHOW PROCESSLIST;
+SHOW STATUS LIKE 'Threads_connected';
+
+-- Oracle
+SELECT COUNT(*) FROM v$session WHERE username = 'SAKAI';
+```
+
+### Session Monitoring
+
+Monitor active user sessions in `sakai.properties`:
+
+```properties
+# Session timeout (minutes)
+inactiveInterval@org.sakaiproject.tool.api.SessionManager=30
+```
+
+## External Monitoring Tools
+
+### JMX Monitoring
+
+Enable JMX for external monitoring:
+
+```bash
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=9999"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
+export JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false"
+```
+
+<Warning>
+Always secure JMX endpoints in production. Enable authentication and SSL, and restrict access to monitoring hosts only.
+</Warning>
+
+### Application Performance Monitoring (APM)
+
+Integrate with APM solutions:
+
+- **New Relic**: Add Java agent to `JAVA_OPTS`
+- **Datadog**: Install Datadog agent and Java tracer
+- **AppDynamics**: Deploy AppDynamics Java agent
+
+### Log Aggregation
+
+Centralize logs using:
+
+- **ELK Stack** (Elasticsearch, Logstash, Kibana)
+- **Splunk**
+- **Graylog**
+
+Example Filebeat configuration:
+
+```yaml
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /path/to/tomcat/logs/catalina.out
+  fields:
+    application: sakai
+    environment: production
+```
+
+## Alerting
+
+### Critical Alerts
+
+Configure alerts for:
+
+- **High memory usage** (>80% heap utilization)
+- **Database connection pool exhaustion**
+- **Slow response times** (>5 seconds)
+- **Error rate spikes** (>1% of requests)
+- **Disk space** (&lt;10% free)
+- **Service unavailability** (HTTP 5xx errors)
+
+### Alert Thresholds
+
+```yaml
+alerts:
+  - name: high_heap_usage
+    condition: heap_used > 80%
+    duration: 5m
+    severity: warning
+  
+  - name: database_connections_exhausted
+    condition: active_connections >= max_connections
+    duration: 1m
+    severity: critical
+  
+  - name: slow_response_time
+    condition: p95_response_time > 5s
+    duration: 5m
+    severity: warning
+```
+
+## Debugging Tools
+
+### Enable Detailed Error Messages
+
+For development/staging environments:
+
+```properties
+# Show detailed errors in portal
+portal.error.showdetail=true
+content.cleaner.errors.logged=true
+```
+
+<Warning>
+Never enable detailed error messages in production as they may expose sensitive system information.
+</Warning>
+
+### Thread Dump Analysis
+
+Capture thread dumps for performance issues:
+
+```bash
+# Get Tomcat PID
+pid=$(pgrep -f catalina)
+
+# Capture thread dump
+kill -3 $pid
+
+# Thread dump appears in catalina.out
+```
+
+### Heap Dump Analysis
+
+Capture heap dumps for memory issues:
+
+```bash
+jmap -dump:live,format=b,file=/tmp/heap.bin <pid>
+```
+
+Analyze with tools like Eclipse MAT or VisualVM.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Log Levels" icon="list">
+    Use appropriate log levels: ERROR for failures, WARN for issues, INFO for significant events, DEBUG for development only.
+  </Card>
+  
+  <Card title="Retention Policies" icon="clock">
+    Retain logs for 30-90 days based on compliance requirements. Archive older logs to cold storage.
+  </Card>
+  
+  <Card title="Monitoring Baseline" icon="chart-line">
+    Establish performance baselines during normal operation for comparison during incidents.
+  </Card>
+  
+  <Card title="Regular Review" icon="eye">
+    Review logs and metrics regularly to identify trends and potential issues before they become critical.
+  </Card>
+</CardGroup>
+
+## Troubleshooting Common Issues
+
+### High CPU Usage
+
+1. Capture thread dump: `kill -3 <pid>`
+2. Check for stuck threads in catalina.out
+3. Review scheduled jobs in Admin Workspace → Job Scheduler
+4. Check Ignite cluster communication
+
+### Memory Leaks
+
+1. Enable heap dump on OOM
+2. Monitor heap usage trends over time
+3. Check for session leaks (sessions not expiring)
+4. Review custom code for object retention
+
+### Slow Database Queries
+
+1. Enable slow query log in database
+2. Review database statistics and execution plans
+3. Check for missing indexes
+4. Monitor connection pool exhaustion
+
+## Related Resources
+
+- [Performance Tuning](/deployment/performance-tuning)
+- [Backup and Restore](/deployment/backup-restore)
+- [Upgrade Procedures](/deployment/upgrades)

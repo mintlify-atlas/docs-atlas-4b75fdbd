@@ -1,0 +1,717 @@
+---
+title: UserDirectoryService API
+description: User management and authentication service for Sakai LMS
+---
+
+The `UserDirectoryService` manages end-user modeling for Sakai, including user creation, authentication, and user information retrieval.
+
+## Overview
+
+Package: `org.sakaiproject.user.api`
+
+The UserDirectoryService provides comprehensive user management capabilities including:
+
+- User creation and modification
+- Authentication and password validation
+- User search and retrieval
+- Email-based user lookup
+- EID (Enterprise ID) to internal ID mapping
+
+## Constants
+
+<ParamField path="APPLICATION_ID" type="String" default="sakai:user">
+  Application identifier for the user service
+</ParamField>
+
+<ParamField path="REFERENCE_ROOT" type="String" default="/user">
+  Root path for user resource references
+</ParamField>
+
+<ParamField path="ADMIN_ID" type="String" default="admin">
+  User ID for the admin user
+</ParamField>
+
+<ParamField path="ADMIN_EID" type="String" default="admin">
+  Enterprise ID for the admin user
+</ParamField>
+
+## Security Functions
+
+<ParamField path="SECURE_ADD_USER" type="String" default="user.add">
+  Permission to add a user
+</ParamField>
+
+<ParamField path="SECURE_REMOVE_USER" type="String" default="user.del">
+  Permission to remove a user
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_USER_ANY" type="String" default="user.upd.any">
+  Permission to update any user's information
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_USER_OWN" type="String" default="user.upd.own">
+  Permission to update own user information
+</ParamField>
+
+<ParamField path="SECURE_VIEW_USER_ANY" type="String" default="user.view.any">
+  Permission to view any user's details
+</ParamField>
+
+## Core Methods
+
+### User Retrieval
+
+#### getUser
+
+```java
+User getUser(String id) throws UserNotDefinedException
+```
+
+Access a user object by internal user ID.
+
+<ParamField path="id" type="String" required>
+  The user ID string
+</ParamField>
+
+<ResponseField name="User" type="User">
+  User object containing the user information
+</ResponseField>
+
+**Throws:**
+- `UserNotDefinedException` - if user not found
+
+**Example:**
+```java
+try {
+    User user = userDirectoryService.getUser(userId);
+    String email = user.getEmail();
+    String displayName = user.getDisplayName();
+} catch (UserNotDefinedException e) {
+    // Handle user not found
+}
+```
+
+---
+
+#### getOptionalUser
+
+```java
+Optional<User> getOptionalUser(String userId)
+```
+
+Access a user object as an Optional.
+
+<ParamField path="userId" type="String" required>
+  The user ID string
+</ParamField>
+
+<ResponseField name="Optional<User>" type="Optional<User>">
+  Optional containing the user information if found
+</ResponseField>
+
+**Example:**
+```java
+Optional<User> optUser = userDirectoryService.getOptionalUser(userId);
+optUser.ifPresent(user -> {
+    log.info("Found user: " + user.getDisplayName());
+});
+```
+
+---
+
+#### getUserByEid
+
+```java
+User getUserByEid(String eid) throws UserNotDefinedException
+```
+
+Access a user object by enterprise ID.
+
+<ParamField path="eid" type="String" required>
+  The user enterprise ID (login username)
+</ParamField>
+
+<ResponseField name="User" type="User">
+  User object containing the user information
+</ResponseField>
+
+**Throws:**
+- `UserNotDefinedException` - if user not found
+
+---
+
+#### getCurrentUser
+
+```java
+User getCurrentUser()
+```
+
+Access the user object associated with the current request.
+
+<ResponseField name="User" type="User">
+  The current user (may be anonymous)
+</ResponseField>
+
+**Example:**
+```java
+User currentUser = userDirectoryService.getCurrentUser();
+if (currentUser.equals(userDirectoryService.getAnonymousUser())) {
+    // User is not logged in
+} else {
+    String userId = currentUser.getId();
+}
+```
+
+---
+
+#### getAnonymousUser
+
+```java
+User getAnonymousUser()
+```
+
+Access the anonymous user object. Useful for testing if current user is logged in.
+
+<ResponseField name="User" type="User">
+  The anonymous user object
+</ResponseField>
+
+---
+
+### User Creation
+
+#### addUser (Simple)
+
+```java
+UserEdit addUser(String id, String eid) 
+    throws UserIdInvalidException, UserAlreadyDefinedException, UserPermissionException
+```
+
+Add a new user to the directory. Must call `commitEdit()` to save or `cancelEdit()` when done.
+
+<ParamField path="id" type="String">
+  The user UUID string. Leave null for auto-assignment
+</ParamField>
+
+<ParamField path="eid" type="String" required>
+  The user enterprise ID (login username)
+</ParamField>
+
+<ResponseField name="UserEdit" type="UserEdit">
+  A locked UserEdit object for modification
+</ResponseField>
+
+**Throws:**
+- `UserIdInvalidException` - if the user eid is invalid
+- `UserAlreadyDefinedException` - if the user id or eid is already used
+- `UserPermissionException` - if current user lacks permission
+
+**Example:**
+```java
+try {
+    UserEdit user = userDirectoryService.addUser(null, "jsmith");
+    user.setFirstName("John");
+    user.setLastName("Smith");
+    user.setEmail("jsmith@example.com");
+    user.setType("student");
+    userDirectoryService.commitEdit(user);
+} catch (UserAlreadyDefinedException e) {
+    // Handle duplicate user
+}
+```
+
+---
+
+#### addUser (Complete)
+
+```java
+User addUser(String id, String eid, String firstName, String lastName, 
+             String email, String pw, String type, ResourceProperties properties)
+    throws UserIdInvalidException, UserAlreadyDefinedException, UserPermissionException
+```
+
+Add a new user to the directory, complete in one operation.
+
+<ParamField path="id" type="String">
+  The user UUID string. Leave null for auto-assignment
+</ParamField>
+
+<ParamField path="eid" type="String" required>
+  The user enterprise ID
+</ParamField>
+
+<ParamField path="firstName" type="String" required>
+  The user first name
+</ParamField>
+
+<ParamField path="lastName" type="String" required>
+  The user last name
+</ParamField>
+
+<ParamField path="email" type="String" required>
+  The user email address
+</ParamField>
+
+<ParamField path="pw" type="String">
+  The user password
+</ParamField>
+
+<ParamField path="type" type="String">
+  The user type (e.g., "student", "instructor")
+</ParamField>
+
+<ParamField path="properties" type="ResourceProperties">
+  Additional user properties
+</ParamField>
+
+<ResponseField name="User" type="User">
+  The created User object
+</ResponseField>
+
+---
+
+### Authentication
+
+#### authenticate
+
+```java
+User authenticate(String loginId, String password)
+```
+
+Authenticate a user with login ID and password.
+
+<ParamField path="loginId" type="String" required>
+  The string identifying the user (typically EID)
+</ParamField>
+
+<ParamField path="password" type="String" required>
+  The password
+</ParamField>
+
+<ResponseField name="User" type="User">
+  The authenticated User object if successful, null if not
+</ResponseField>
+
+**Example:**
+```java
+User user = userDirectoryService.authenticate(username, password);
+if (user != null) {
+    // Authentication successful
+    sessionManager.getCurrentSession().setUserId(user.getId());
+} else {
+    // Authentication failed
+}
+```
+
+---
+
+#### validatePassword
+
+```java
+PasswordRating validatePassword(String password, User user)
+```
+
+Validate if a password meets the password policy requirements.
+
+<ParamField path="password" type="String" required>
+  The password to validate
+</ParamField>
+
+<ParamField path="user" type="User">
+  The user this password is for (optional, uses current user if null)
+</ParamField>
+
+<ResponseField name="PasswordRating" type="PasswordRating">
+  Enum indicating password strength: FAILED, PASSED_DEFAULT, PASSED_UNRATED, WEAK, MODERATE, or STRONG
+</ResponseField>
+
+**Example:**
+```java
+PasswordRating rating = userDirectoryService.validatePassword(newPassword, user);
+if (rating.passed()) {
+    // Password meets requirements
+    if (rating.equals(PasswordRating.WEAK)) {
+        // Warn user about weak password
+    }
+} else {
+    // Password does not meet requirements
+}
+```
+
+---
+
+### User Search
+
+#### searchUsers
+
+```java
+List<User> searchUsers(String criteria, int first, int last)
+```
+
+Search users matching criteria in id, email, first or last name.
+
+<Warning>
+  This method does not search external users (e.g., from LDAP).
+</Warning>
+
+<ParamField path="criteria" type="String" required>
+  The search criteria string
+</ParamField>
+
+<ParamField path="first" type="int" required>
+  The first record position to return (1-based)
+</ParamField>
+
+<ParamField path="last" type="int" required>
+  The last record position to return
+</ParamField>
+
+<ResponseField name="List<User>" type="List<User>">
+  List of users matching criteria, sorted by sort name
+</ResponseField>
+
+**Example:**
+```java
+// Search for users matching "smith" and get first 50 results
+List<User> users = userDirectoryService.searchUsers("smith", 1, 50);
+for (User user : users) {
+    System.out.println(user.getDisplayName() + " - " + user.getEmail());
+}
+```
+
+---
+
+#### searchExternalUsers
+
+```java
+List<User> searchExternalUsers(String criteria, int first, int last)
+```
+
+Search externally provided users (e.g., from LDAP) matching criteria.
+
+<ParamField path="criteria" type="String" required>
+  The search criteria string
+</ParamField>
+
+<ParamField path="first" type="int" required>
+  The first record position to return
+</ParamField>
+
+<ParamField path="last" type="int" required>
+  The last record position to return
+</ParamField>
+
+<ResponseField name="List<User>" type="List<User>">
+  List of external users matching criteria
+</ResponseField>
+
+---
+
+#### findUsersByEmail
+
+```java
+Collection<User> findUsersByEmail(String email)
+```
+
+Find users with a specific email address.
+
+<ParamField path="email" type="String" required>
+  The email address to search for
+</ParamField>
+
+<ResponseField name="Collection<User>" type="Collection<User>">
+  Collection of users with this email (may be empty, never null)
+</ResponseField>
+
+---
+
+### User Modification
+
+#### editUser
+
+```java
+UserEdit editUser(String id) 
+    throws UserNotDefinedException, UserPermissionException, UserLockedException
+```
+
+Get a locked user object for editing. Must call `commitEdit()` or `cancelEdit()` when done.
+
+<ParamField path="id" type="String" required>
+  The user ID string
+</ParamField>
+
+<ResponseField name="UserEdit" type="UserEdit">
+  A locked UserEdit object for modification
+</ResponseField>
+
+**Throws:**
+- `UserNotDefinedException` - if user not found
+- `UserPermissionException` - if current user lacks permission
+- `UserLockedException` - if the user is locked by someone else
+
+**Example:**
+```java
+try {
+    UserEdit user = userDirectoryService.editUser(userId);
+    user.setEmail("newemail@example.com");
+    userDirectoryService.commitEdit(user);
+} catch (UserLockedException e) {
+    // User is being edited by someone else
+}
+```
+
+---
+
+#### commitEdit
+
+```java
+void commitEdit(UserEdit user) throws UserAlreadyDefinedException
+```
+
+Commit changes made to a UserEdit object and release the lock.
+
+<ParamField path="user" type="UserEdit" required>
+  The UserEdit object to commit
+</ParamField>
+
+**Throws:**
+- `UserAlreadyDefinedException` - if the User eid is already in use by another user
+
+---
+
+#### cancelEdit
+
+```java
+void cancelEdit(UserEdit user)
+```
+
+Cancel changes made to a UserEdit object and release the lock.
+
+<ParamField path="user" type="UserEdit" required>
+  The UserEdit object to cancel
+</ParamField>
+
+---
+
+### User Removal
+
+#### removeUser
+
+```java
+void removeUser(UserEdit user) throws UserPermissionException
+```
+
+Remove a user from the directory. User must be locked with `editUser()`.
+
+<ParamField path="user" type="UserEdit" required>
+  The locked UserEdit object to remove
+</ParamField>
+
+**Throws:**
+- `UserPermissionException` - if current user lacks permission
+
+---
+
+### ID Mapping
+
+#### getUserId
+
+```java
+String getUserId(String eid) throws UserNotDefinedException
+```
+
+Find the internal user ID from an enterprise ID.
+
+<ParamField path="eid" type="String" required>
+  The user enterprise ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The internal user ID
+</ResponseField>
+
+**Throws:**
+- `UserNotDefinedException` - if user not found
+
+---
+
+#### getUserEid
+
+```java
+String getUserEid(String id) throws UserNotDefinedException
+```
+
+Find the enterprise ID from an internal user ID.
+
+<ParamField path="id" type="String" required>
+  The internal user ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The user enterprise ID
+</ResponseField>
+
+**Throws:**
+- `UserNotDefinedException` - if user not found
+
+---
+
+### Permission Checks
+
+#### allowAddUser
+
+```java
+boolean allowAddUser()
+```
+
+Check if the current user is allowed to add a user.
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowUpdateUser
+
+```java
+boolean allowUpdateUser(String id)
+```
+
+Check if the current user is allowed to update a user.
+
+<ParamField path="id" type="String" required>
+  The user ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowRemoveUser
+
+```java
+boolean allowRemoveUser(String id)
+```
+
+Check if the current user is allowed to remove a user.
+
+<ParamField path="id" type="String" required>
+  The user ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+### Utility Methods
+
+#### getUsers (Collection)
+
+```java
+List<User> getUsers(Collection<String> ids)
+```
+
+Access multiple user objects by their IDs.
+
+<ParamField path="ids" type="Collection<String>" required>
+  Collection of user IDs
+</ParamField>
+
+<ResponseField name="List<User>" type="List<User>">
+  List of User objects for valid IDs
+</ResponseField>
+
+---
+
+#### getUsersByEids
+
+```java
+List<User> getUsersByEids(Collection<String> eids)
+```
+
+Find users matching the given EID strings.
+
+<ParamField path="eids" type="Collection<String>" required>
+  Collection of enterprise IDs
+</ParamField>
+
+<ResponseField name="List<User>" type="List<User>">
+  List of user objects corresponding to valid EIDs
+</ResponseField>
+
+---
+
+#### countUsers
+
+```java
+int countUsers()
+```
+
+Count all users.
+
+<ResponseField name="int" type="int">
+  The count of all users
+</ResponseField>
+
+---
+
+#### userReference
+
+```java
+String userReference(String id)
+```
+
+Get the internal reference for accessing a user within the system.
+
+<ParamField path="id" type="String" required>
+  The user ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The internal reference (e.g., "/user/{id}")
+</ResponseField>
+
+---
+
+## User Object
+
+The `User` interface provides access to user properties:
+
+```java
+User user = userDirectoryService.getUser(userId);
+
+// Identity
+String id = user.getId();              // Internal ID
+String eid = user.getEid();            // Enterprise ID (username)
+
+// Personal Information
+String firstName = user.getFirstName();
+String lastName = user.getLastName();
+String email = user.getEmail();
+
+// Display Names
+String displayName = user.getDisplayName();         // For UI display
+String sortName = user.getSortName();               // For sorting
+String displayId = user.getDisplayId();             // EID for display
+
+// Metadata
+String type = user.getType();                       // User type
+Date created = user.getCreatedDate();
+Date modified = user.getModifiedDate();
+User createdBy = user.getCreatedBy();
+User modifiedBy = user.getModifiedBy();
+
+// Password Check
+boolean isValid = user.checkPassword("password");
+```
+
+## See Also
+
+- [SessionManager API](/api/kernel/session-manager) - Session and authentication management
+- [AuthzGroupService API](/api/kernel/authz-service) - Authorization and permissions
+- [SiteService API](/api/kernel/site-service) - Site membership

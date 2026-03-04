@@ -1,0 +1,809 @@
+---
+title: SiteService API
+description: Site management and organization service for Sakai LMS
+---
+
+The `SiteService` manages Sites in Sakai. Sites are the primary organizational unit containing pages, tools, and user memberships.
+
+## Overview
+
+Package: `org.sakaiproject.site.api`
+
+The SiteService provides comprehensive site management capabilities including:
+
+- Site creation, modification, and deletion
+- Site membership and permissions
+- Page and tool management within sites
+- Site access control and visibility
+- Site search and filtering
+
+## Constants
+
+<ParamField path="APPLICATION_ID" type="String" default="sakai:site">
+  Application identifier for the site service
+</ParamField>
+
+<ParamField path="REFERENCE_ROOT" type="String" default="/site">
+  Root path for site resource references
+</ParamField>
+
+<ParamField path="ADMIN_SITE_ID" type="String" default="!admin">
+  The site ID for the admin workspace
+</ParamField>
+
+<ParamField path="SITE_TEMPLATE" type="String" default="!worksite">
+  Template site for non-user sites
+</ParamField>
+
+<ParamField path="USER_SITE_TEMPLATE" type="String" default="!user">
+  Template site for user sites
+</ParamField>
+
+## Security Functions
+
+<ParamField path="SECURE_ADD_SITE" type="String" default="site.add">
+  Permission to add a site
+</ParamField>
+
+<ParamField path="SECURE_REMOVE_SITE" type="String" default="site.del">
+  Permission to remove a site
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_SITE" type="String" default="site.upd">
+  Permission to update a site
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_SITE_MEMBERSHIP" type="String" default="site.upd.site.mbrshp">
+  Permission to update site membership
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_GROUP_MEMBERSHIP" type="String" default="site.upd.grp.mbrshp">
+  Permission to update group memberships
+</ParamField>
+
+<ParamField path="SECURE_VIEW_ROSTER" type="String" default="site.viewRoster">
+  Permission to view project site participants
+</ParamField>
+
+## Events
+
+<ParamField path="SITE_VISIT" type="String" default="site.visit">
+  Event for visiting a site
+</ParamField>
+
+<ParamField path="EVENT_SITE_PUBLISH" type="String" default="site.publish">
+  Event for publishing a site
+</ParamField>
+
+<ParamField path="EVENT_SITE_UNPUBLISH" type="String" default="site.unpublish">
+  Event for unpublishing a site
+</ParamField>
+
+## Core Methods
+
+### Site Access
+
+#### getSite
+
+```java
+Site getSite(String id) throws IdUnusedException
+```
+
+Access a site object. This method does not perform security/permission checks.
+
+<Warning>
+  For permission-checked access when users visit a site, use `getSiteVisit()` instead.
+</Warning>
+
+<ParamField path="id" type="String" required>
+  The site ID string
+</ParamField>
+
+<ResponseField name="Site" type="Site">
+  Site object containing the site information
+</ResponseField>
+
+**Throws:**
+- `IdUnusedException` - if site not found
+
+**Example:**
+```java
+try {
+    Site site = siteService.getSite(siteId);
+    String title = site.getTitle();
+    List<SitePage> pages = site.getPages();
+} catch (IdUnusedException e) {
+    // Handle site not found
+}
+```
+
+---
+
+#### getOptionalSite
+
+```java
+Optional<Site> getOptionalSite(String id)
+```
+
+Access a site object as an Optional without throwing exceptions.
+
+<ParamField path="id" type="String" required>
+  The site ID string
+</ParamField>
+
+<ResponseField name="Optional<Site>" type="Optional<Site>">
+  Optional containing the site if found
+</ResponseField>
+
+**Example:**
+```java
+Optional<Site> optSite = siteService.getOptionalSite(siteId);
+optSite.ifPresent(site -> {
+    log.info("Site title: " + site.getTitle());
+});
+```
+
+---
+
+#### getSiteVisit
+
+```java
+Site getSiteVisit(String id) throws IdUnusedException, PermissionException
+```
+
+Access a site object with visitation permission checks.
+
+<ParamField path="id" type="String" required>
+  The site ID string
+</ParamField>
+
+<ResponseField name="Site" type="Site">
+  Site object containing the site information
+</ResponseField>
+
+**Throws:**
+- `IdUnusedException` - if site not found
+- `PermissionException` - if current user lacks permission to visit
+
+**Example:**
+```java
+try {
+    Site site = siteService.getSiteVisit(siteId);
+    // User has permission to visit this site
+} catch (PermissionException e) {
+    // User cannot access this site
+}
+```
+
+---
+
+#### siteExists
+
+```java
+boolean siteExists(String id)
+```
+
+Check if a site with this ID exists.
+
+<ParamField path="id" type="String">
+  The site ID string (returns false if null)
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if site exists, false otherwise
+</ResponseField>
+
+---
+
+### Site Creation
+
+#### addSite (Simple)
+
+```java
+Site addSite(String id, String type) 
+    throws IdInvalidException, IdUsedException, PermissionException
+```
+
+Add a new site with the given ID and type.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="type" type="String" required>
+  The site type (e.g., "course", "project")
+</ParamField>
+
+<ResponseField name="Site" type="Site">
+  The new Site object
+</ResponseField>
+
+**Throws:**
+- `IdInvalidException` - if the site ID is invalid
+- `IdUsedException` - if the site ID is already in use
+- `PermissionException` - if current user lacks permission
+
+**Example:**
+```java
+try {
+    Site site = siteService.addSite("my-site", "project");
+    site.setTitle("My Project Site");
+    site.setDescription("A collaborative project space");
+    site.setPublished(true);
+    siteService.save(site);
+} catch (IdUsedException e) {
+    // Site ID already exists
+}
+```
+
+---
+
+#### addSite (Copy)
+
+```java
+Site addSite(String id, Site other) 
+    throws IdInvalidException, IdUsedException, PermissionException
+```
+
+Add a new site structured like another site.
+
+<ParamField path="id" type="String" required>
+  The new site ID
+</ParamField>
+
+<ParamField path="other" type="Site" required>
+  The site to copy structure from
+</ParamField>
+
+<ResponseField name="Site" type="Site">
+  The new Site object with structure copied from other
+</ResponseField>
+
+---
+
+### Site Modification
+
+#### save
+
+```java
+void save(Site site) throws IdUnusedException, PermissionException
+```
+
+Save updates to a site. Site must exist and user must have update permissions.
+
+<ParamField path="site" type="Site" required>
+  The modified site to save
+</ParamField>
+
+**Throws:**
+- `IdUnusedException` - if the site's ID is not defined
+- `PermissionException` - if current user lacks permission
+
+**Example:**
+```java
+try {
+    Site site = siteService.getSite(siteId);
+    site.setTitle("Updated Title");
+    site.setDescription("New description");
+    siteService.save(site);
+} catch (PermissionException e) {
+    // User cannot update this site
+}
+```
+
+---
+
+#### saveSiteMembership
+
+```java
+void saveSiteMembership(Site site) throws IdUnusedException, PermissionException
+```
+
+Save only site membership updates.
+
+<ParamField path="site" type="Site" required>
+  The site with modified membership
+</ParamField>
+
+**Throws:**
+- `IdUnusedException` - if the site's ID is not defined
+- `PermissionException` - if current user lacks permission to update membership
+
+---
+
+#### saveSiteInfo
+
+```java
+void saveSiteInfo(String id, String description, String infoUrl) 
+    throws IdUnusedException, PermissionException
+```
+
+Save a site's display information fields only.
+
+<ParamField path="id" type="String" required>
+  The site ID to update
+</ParamField>
+
+<ParamField path="description" type="String" required>
+  The updated description
+</ParamField>
+
+<ParamField path="infoUrl" type="String" required>
+  The updated info URL
+</ParamField>
+
+---
+
+### Site Removal
+
+#### removeSite
+
+```java
+void removeSite(Site site) throws PermissionException, IdUnusedException
+```
+
+Remove a site and all its content.
+
+<Warning>
+  If site.soft.deletion=true in configuration, the site will be soft deleted first with a grace period before hard deletion.
+</Warning>
+
+<ParamField path="site" type="Site" required>
+  The site to remove
+</ParamField>
+
+**Throws:**
+- `PermissionException` - if current user lacks permission
+- `IdUnusedException` - if site does not exist
+
+---
+
+### Site Search and Listing
+
+#### getUserSites
+
+```java
+List<Site> getUserSites()
+List<Site> getUserSites(boolean requireDescription)
+List<Site> getUserSites(boolean requireDescription, boolean includeUnpublishedSites)
+```
+
+Access a list of sites the current user can visit, sorted by title.
+
+<ParamField path="requireDescription" type="boolean" default="true">
+  When true, full descriptions included; when false, may be omitted
+</ParamField>
+
+<ParamField path="includeUnpublishedSites" type="boolean" default="false">
+  When true, include unpublished sites
+</ParamField>
+
+<ResponseField name="List<Site>" type="List<Site>">
+  List of sites the current user can access
+</ResponseField>
+
+**Example:**
+```java
+// Get all published sites for current user
+List<Site> sites = siteService.getUserSites();
+
+// Get all sites including unpublished
+List<Site> allSites = siteService.getUserSites(true, true);
+
+for (Site site : sites) {
+    System.out.println(site.getTitle() + " (" + site.getId() + ")");
+}
+```
+
+---
+
+#### getSites
+
+```java
+List<Site> getSites(SelectionType type, Object ofType, String criteria, 
+                    Map<String, String> propertyCriteria, SortType sort, 
+                    PagingPosition page)
+```
+
+Access a list of Site objects meeting specified criteria.
+
+<ParamField path="type" type="SelectionType" required>
+  Selection type (ACCESS, UPDATE, JOINABLE, PUBVIEW, ANY, etc.)
+</ParamField>
+
+<ParamField path="ofType" type="Object">
+  Site type criteria: null for any; String for single type; String[]/List/Set for multiple
+</ParamField>
+
+<ParamField path="criteria" type="String">
+  Match string in site id, title, description, or skin
+</ParamField>
+
+<ParamField path="propertyCriteria" type="Map<String,String>">
+  Property name-value pairs to match
+</ParamField>
+
+<ParamField path="sort" type="SortType" required>
+  Sort order (TITLE_ASC, TITLE_DESC, CREATED_ON_ASC, etc.)
+</ParamField>
+
+<ParamField path="page" type="PagingPosition">
+  Subset of items to return
+</ParamField>
+
+<ResponseField name="List<Site>" type="List<Site>">
+  List of Site objects matching criteria
+</ResponseField>
+
+**Example:**
+```java
+// Get all course sites user can access, sorted by title
+List<Site> courseSites = siteService.getSites(
+    SelectionType.ACCESS,
+    "course",
+    null,
+    null,
+    SortType.TITLE_ASC,
+    null
+);
+
+// Search for sites with "biology" in title/description
+List<Site> bioSites = siteService.getSites(
+    SelectionType.ACCESS,
+    null,
+    "biology",
+    null,
+    SortType.TITLE_ASC,
+    null
+);
+```
+
+---
+
+#### getSiteIds
+
+```java
+List<String> getSiteIds(SelectionType type, Object ofType, String criteria,
+                        Map<String, String> propertyCriteria, SortType sort,
+                        PagingPosition page)
+```
+
+Get site IDs matching criteria. More efficient than `getSites()` when you only need IDs.
+
+<ParamField path="type" type="SelectionType" required>
+  Selection type
+</ParamField>
+
+<ResponseField name="List<String>" type="List<String>">
+  List of site IDs matching criteria
+</ResponseField>
+
+---
+
+#### countSites
+
+```java
+int countSites(SelectionType type, Object ofType, String criteria,
+               Map<String, String> propertyCriteria)
+```
+
+Count Site objects meeting specified criteria.
+
+<ResponseField name="int" type="int">
+  Count of sites matching criteria
+</ResponseField>
+
+---
+
+### Selection Types
+
+The `SelectionType` class defines filtering criteria:
+
+<ParamField path="ACCESS" type="SelectionType">
+  Sites the current user has read access to (non-special, non-myWorkspace)
+</ParamField>
+
+<ParamField path="UPDATE" type="SelectionType">
+  Sites the current user has write access to
+</ParamField>
+
+<ParamField path="JOINABLE" type="SelectionType">
+  Sites the current user can join but doesn't have read access to
+</ParamField>
+
+<ParamField path="PUBVIEW" type="SelectionType">
+  Sites marked for public view
+</ParamField>
+
+<ParamField path="ANY" type="SelectionType">
+  Any sites
+</ParamField>
+
+<ParamField path="MEMBER" type="SelectionType">
+  Sites the current user is a member of (regardless of published status)
+</ParamField>
+
+<ParamField path="DELETED" type="SelectionType">
+  Soft-deleted sites for current user
+</ParamField>
+
+---
+
+### Sort Types
+
+The `SortType` class defines sorting options:
+
+<ParamField path="TITLE_ASC" type="SortType">
+  Sort by title ascending
+</ParamField>
+
+<ParamField path="TITLE_DESC" type="SortType">
+  Sort by title descending
+</ParamField>
+
+<ParamField path="CREATED_ON_ASC" type="SortType">
+  Sort by creation time ascending
+</ParamField>
+
+<ParamField path="CREATED_ON_DESC" type="SortType">
+  Sort by creation time descending
+</ParamField>
+
+<ParamField path="MODIFIED_ON_ASC" type="SortType">
+  Sort by modification time ascending
+</ParamField>
+
+<ParamField path="PUBLISHED_ASC" type="SortType">
+  Sort by published status ascending
+</ParamField>
+
+---
+
+### Site Membership
+
+#### join
+
+```java
+void join(String id) throws IdUnusedException, PermissionException
+```
+
+Cause the current user to join a site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+**Throws:**
+- `IdUnusedException` - if site not found
+- `PermissionException` - if current user cannot join this site
+
+---
+
+#### unjoin
+
+```java
+void unjoin(String id) throws IdUnusedException, PermissionException
+```
+
+Cause the current user to unjoin a site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+---
+
+#### isCurrentUserMemberOfSite
+
+```java
+boolean isCurrentUserMemberOfSite(String id)
+```
+
+Determine if the current user is a member of the site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if current user is a member
+</ResponseField>
+
+---
+
+### Permission Checks
+
+#### allowAccessSite
+
+```java
+boolean allowAccessSite(String id)
+```
+
+Check if the current user is allowed to access (visit) a site.
+
+<ParamField path="id" type="String">
+  The site ID (returns false if null)
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowUpdateSite
+
+```java
+boolean allowUpdateSite(String id)
+```
+
+Check if the current user is allowed to update a site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowAddSite
+
+```java
+boolean allowAddSite(String id)
+```
+
+Check if the current user is allowed to add a site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+### Tool and Page Access
+
+#### findTool
+
+```java
+ToolConfiguration findTool(String id)
+```
+
+Access a ToolConfiguration by ID from any site.
+
+<ParamField path="id" type="String" required>
+  The tool ID
+</ParamField>
+
+<ResponseField name="ToolConfiguration" type="ToolConfiguration">
+  The ToolConfiguration, or null if not found
+</ResponseField>
+
+---
+
+#### findPage
+
+```java
+SitePage findPage(String id)
+```
+
+Access a Page by ID from any site.
+
+<ParamField path="id" type="String" required>
+  The page ID
+</ParamField>
+
+<ResponseField name="SitePage" type="SitePage">
+  The SitePage, or null if not found
+</ResponseField>
+
+---
+
+### Utility Methods
+
+#### siteReference
+
+```java
+String siteReference(String id)
+```
+
+Get the internal reference for accessing a site.
+
+<ParamField path="id" type="String" required>
+  The site ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The internal reference (e.g., "/site/{id}")
+</ResponseField>
+
+---
+
+#### isUserSite
+
+```java
+boolean isUserSite(String site)
+```
+
+Check if this site ID or reference is a user site (My Workspace).
+
+<ParamField path="site" type="String" required>
+  The site ID or reference
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if this is a user site
+</ResponseField>
+
+---
+
+#### isSpecialSite
+
+```java
+boolean isSpecialSite(String site)
+```
+
+Check if this site ID or reference is a special site (starts with '!').
+
+<ParamField path="site" type="String" required>
+  The site ID or reference
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if this is a special site
+</ResponseField>
+
+---
+
+## Site Object
+
+The `Site` interface provides access to site properties and structure:
+
+```java
+Site site = siteService.getSite(siteId);
+
+// Basic Properties
+String id = site.getId();
+String title = site.getTitle();
+String description = site.getDescription();
+String type = site.getType();
+
+// Status
+boolean published = site.isPublished();
+boolean joinable = site.isJoinable();
+String joinerRole = site.getJoinerRole();
+
+// Display
+String skin = site.getSkin();
+String iconUrl = site.getIconUrl();
+String infoUrl = site.getInfoUrl();
+
+// Structure
+List<SitePage> pages = site.getPages();
+List<SitePage> orderedPages = site.getOrderedPages();
+Collection<Group> groups = site.getGroups();
+
+// Membership (extends AuthzGroup)
+Set<Member> members = site.getMembers();
+Member member = site.getMember(userId);
+Set<String> users = site.getUsers();
+boolean hasRole = site.hasRole(userId, roleId);
+
+// Metadata
+User createdBy = site.getCreatedBy();
+User modifiedBy = site.getModifiedBy();
+Date createdDate = site.getCreatedDate();
+Date modifiedDate = site.getModifiedDate();
+```
+
+## See Also
+
+- [AuthzGroupService API](/api/kernel/authz-service) - Site permissions and roles
+- [UserDirectoryService API](/api/kernel/user-directory) - User management
+- [EntityManager API](/api/kernel/entity-manager) - Entity reference resolution

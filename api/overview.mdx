@@ -1,0 +1,229 @@
+---
+title: API Overview
+description: Overview of Sakai LMS API architecture and available endpoints
+---
+
+Sakai LMS provides multiple API layers for accessing learning management system functionality programmatically. The API architecture consists of modern REST endpoints and a flexible entity broker system.
+
+## API Architecture
+
+Sakai's API is built on several complementary layers:
+
+### 1. Modern REST API (WebAPI)
+
+The WebAPI module provides modern Spring-based REST controllers located in `webapi/src/main/java/org/sakaiproject/webapi/controllers/`. These endpoints follow RESTful conventions and return JSON responses.
+
+**Base Path:** `/api/`
+
+**Key Controllers:**
+- `LoginController` - Authentication and session management
+- `UserController` - User information and roles
+- `SitesController` - Site/course information
+- `DashboardController` - Dashboard data
+- `CalendarController` - Calendar events
+- `AnnouncementsController` - Announcements
+- `GradesController` - Gradebook access
+- `ForumsController` - Forum discussions
+- `TasksController` - Task management
+- `NotificationsController` - User notifications
+
+**Example Controller Implementation:**
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/UserController.java:35
+@GetMapping("/user/roles")
+public ResponseEntity<Map<String, Boolean>> checkSuperUser() {
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(Map.of("isSuperUser", securityService.isSuperUser()));
+}
+```
+
+### 2. Entity Broker System
+
+The Entity Broker provides a flexible, capability-based system for exposing entities via REST APIs. Located in the `entitybroker/` module, it allows tools to register entity providers that automatically expose CRUD operations.
+
+**Base Path:** `/direct/`
+
+**Key Features:**
+- Auto-registration of entity providers
+- CRUD operations (Create, Read, Update, Delete)
+- Custom actions on entities
+- Multiple output formats (JSON, XML, HTML)
+- Search and filtering capabilities
+- Batch operations
+
+**Entity Provider Example:**
+
+```java
+public interface EntityProvider {
+    /**
+     * Controls the globally unique prefix for the entities
+     * handled by this provider.
+     * Example: "annc" for announcements, "eval" for evaluations
+     */
+    public String getEntityPrefix();
+}
+```
+
+**URL Pattern:** `/direct/{prefix}/{id}/{action}.{format}`
+
+Examples:
+- `/direct/assignment/123.json` - Get assignment with ID 123 as JSON
+- `/direct/site/site123/pages.xml` - Get pages for site as XML
+- `/direct/user/current.json` - Get current user as JSON
+
+### 3. Java Kernel Services
+
+The Kernel provides core services that both APIs use internally:
+
+**Session Management** (`SessionManager`):
+```java
+// kernel/api/src/main/java/org/sakaiproject/tool/api/SessionManager.java:84
+Session getCurrentSession();
+String getCurrentSessionUserId();
+Session startSession();
+```
+
+**User Services** (`UserDirectoryService`):
+- User authentication and management
+- User profile access
+- Preferences management
+
+**Site Services** (`SiteService`):
+- Course/project site management
+- Site membership and permissions
+- Tool configuration within sites
+
+**Content Hosting** (`ContentHostingService`):
+- File upload and storage
+- Resource management
+- Collections and folders
+
+**Authorization** (`AuthzGroupService`, `SecurityService`):
+- Permission checking
+- Role management
+- Security assertions
+
+## API Request Flow
+
+<Note>
+All API requests must include a valid Sakai session. The session is typically established via the `/api/login` endpoint and maintained using session cookies.
+</Note>
+
+1. **Authentication:** Client authenticates via `/api/login`
+2. **Session Creation:** Server creates session and returns session ID
+3. **Session Cookie:** Client includes `JSESSIONID` cookie in subsequent requests
+4. **Request Processing:** API controllers validate session and process request
+5. **Response:** Server returns JSON/XML response
+
+## Available Endpoints
+
+### Sites and Courses
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/SitesController.java:58
+@GetMapping(value = "/users/{userId}/sites", produces = MediaType.APPLICATION_JSON_VALUE)
+public Map<String, List<Map<String, Object>>> getSites(
+    @PathVariable String userId,
+    @RequestParam Optional<Boolean> pinned
+)
+```
+
+Returns:
+- List of user's sites/courses
+- Site tools and configuration
+- Pinned sites
+- Site notifications
+
+### User Information
+
+Access user profiles, roles, and permissions:
+- `/api/user/roles` - Check user roles
+- `/direct/user/{userId}.json` - Get user profile
+
+### Calendar and Events
+
+Manage calendar events and schedules:
+- `/api/calendar/*` - Calendar operations
+- `/direct/calendar/*` - Calendar entity access
+
+### Gradebook
+
+Access grades and assignments:
+- `/api/grades/*` - Gradebook data
+- `/direct/gradebook/*` - Gradebook entities
+
+## Data Formats
+
+Both API layers support multiple data formats:
+
+**JSON (Default):**
+```bash
+GET /api/user/roles
+GET /direct/site/123.json
+```
+
+**XML:**
+```bash
+GET /direct/site/123.xml
+```
+
+**Format Constants:**
+```java
+// entitybroker/api/src/java/org/sakaiproject/entitybroker/entityprovider/extension/Formats.java
+public static final String JSON = "json";
+public static final String XML = "xml";
+public static final String HTML = "html";
+public static final String ATOM = "atom";
+public static final String RSS = "rss";
+```
+
+## Error Handling
+
+APIs use standard HTTP status codes:
+
+- **200 OK** - Successful request
+- **201 Created** - Resource created successfully
+- **400 Bad Request** - Invalid request parameters
+- **401 Unauthorized** - Missing or invalid authentication
+- **403 Forbidden** - Insufficient permissions
+- **404 Not Found** - Resource not found
+- **500 Internal Server Error** - Server error
+
+**Example Error Handler:**
+
+```java
+// webapi/src/main/java/org/sakaiproject/webapi/controllers/AbstractSakaiApiController.java:56
+Session checkSakaiSession() {
+    try {
+        Session session = sessionManager.getCurrentSession();
+        if (StringUtils.isBlank(session.getUserId())) {
+            log.error("Sakai user session is invalid");
+            throw new MissingSessionException();
+        }
+        return session;
+    } catch (IllegalStateException e) {
+        log.error("Could not retrieve the sakai session");
+        throw new MissingSessionException(e.getCause());
+    }
+}
+```
+
+## Security Considerations
+
+<Note>
+**Important:** All API endpoints respect Sakai's security model. Users can only access resources they have permission to view or modify.
+</Note>
+
+- Session-based authentication required
+- Permission checks on all operations
+- Site membership validation
+- Resource-level access control
+- Audit logging of API access
+
+## Next Steps
+
+- [Authentication](/api/authentication) - Learn about API authentication methods
+- [Entity Broker Guide](/api/entitybroker) - Deep dive into Entity Broker
+- [WebAPI Reference](/api/webapi) - Complete WebAPI endpoint reference

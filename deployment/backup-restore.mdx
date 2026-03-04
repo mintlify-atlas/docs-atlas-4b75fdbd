@@ -1,0 +1,524 @@
+---
+title: Backup and Restore Procedures
+description: Comprehensive backup and disaster recovery procedures for Sakai LMS production deployments
+---
+
+## Overview
+
+A robust backup strategy is essential for protecting your Sakai LMS data and ensuring business continuity. This guide covers backup procedures, restoration processes, and disaster recovery planning.
+
+## Backup Strategy
+
+### Components to Backup
+
+A complete Sakai backup includes:
+
+<Steps>
+1. **Database** - All Sakai data (users, courses, content metadata)
+2. **File System** - Content hosting files, attachments, resources
+3. **Configuration Files** - sakai.properties, Tomcat configuration
+4. **Custom Code** - Local customizations, plugins, skins
+</Steps>
+
+### Backup Schedule
+
+| Component | Frequency | Retention |
+|-----------|-----------|----------|
+| Database (Full) | Daily | 30 days |
+| Database (Incremental) | Hourly | 7 days |
+| File System | Daily | 30 days |
+| Configuration | Weekly | 90 days |
+| Point-in-time | Every 5 minutes | 24 hours |
+
+## Database Backup
+
+### MySQL/MariaDB Backup
+
+#### Full Backup
+
+Create a complete database backup:
+
+```bash
+#!/bin/bash
+# Sakai MySQL backup script
+
+BACKUP_DIR="/backup/sakai/mysql"
+DATE=$(date +%Y%m%d_%H%M%S)
+DB_NAME="sakai"
+DB_USER="sakai"
+DB_PASS="your_password"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Full backup with compression
+mysqldump -u $DB_USER -p$DB_PASS \
+  --single-transaction \
+  --routines \
+  --triggers \
+  --events \
+  --hex-blob \
+  $DB_NAME | gzip > $BACKUP_DIR/sakai_full_$DATE.sql.gz
+
+# Verify backup
+if [ $? -eq 0 ]; then
+  echo "Backup completed: sakai_full_$DATE.sql.gz"
+else
+  echo "Backup failed!" >&2
+  exit 1
+fi
+```
+
+<Warning>
+Use `--single-transaction` for InnoDB tables to ensure consistent backups without locking tables. This is critical for production systems.
+</Warning>
+
+#### Binary Log Backup (Point-in-Time Recovery)
+
+Enable binary logging in MySQL configuration:
+
+```ini
+# /etc/mysql/my.cnf
+[mysqld]
+log_bin = /var/log/mysql/mysql-bin.log
+expire_logs_days = 7
+max_binlog_size = 100M
+server-id = 1
+```
+
+Backup binary logs:
+
+```bash
+#!/bin/bash
+BINLOG_DIR="/var/log/mysql"
+BACKUP_DIR="/backup/sakai/binlogs"
+DATE=$(date +%Y%m%d)
+
+mysqladmin flush-logs
+rsync -av --remove-source-files $BINLOG_DIR/mysql-bin.* $BACKUP_DIR/$DATE/
+```
+
+### Oracle Backup
+
+#### RMAN Backup
+
+```sql
+-- Full database backup
+RMAN> BACKUP DATABASE PLUS ARCHIVELOG;
+
+-- Incremental backup
+RMAN> BACKUP INCREMENTAL LEVEL 1 DATABASE;
+
+-- Validate backup
+RMAN> RESTORE DATABASE VALIDATE;
+```
+
+#### Export Backup
+
+```bash
+#!/bin/bash
+expdp sakai/password@SAKAIDB \
+  directory=DATA_PUMP_DIR \
+  dumpfile=sakai_full_%U.dmp \
+  logfile=sakai_export.log \
+  full=yes \
+  parallel=4 \
+  compression=all
+```
+
+### PostgreSQL Backup
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/sakai/postgres"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+pg_dump -U sakai -d sakai -F c -f $BACKUP_DIR/sakai_$DATE.dump
+
+# With compression
+pg_dump -U sakai -d sakai | gzip > $BACKUP_DIR/sakai_$DATE.sql.gz
+```
+
+## File System Backup
+
+### Content Hosting Backup
+
+Sakai stores files in the content hosting directory (typically `/var/sakai/content`):
+
+```bash
+#!/bin/bash
+CONTENT_DIR="/var/sakai/content"
+BACKUP_DIR="/backup/sakai/content"
+DATE=$(date +%Y%m%d)
+
+# Incremental backup using rsync
+rsync -avz --delete \
+  --link-dest=$BACKUP_DIR/latest \
+  $CONTENT_DIR/ \
+  $BACKUP_DIR/$DATE/
+
+# Update latest symlink
+ln -snf $BACKUP_DIR/$DATE $BACKUP_DIR/latest
+```
+
+<Note>
+Content hosting can be very large (hundreds of GB to TB). Use incremental backups and consider deduplication to save storage space.
+</Note>
+
+### Configuration Backup
+
+Backup critical configuration files:
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/sakai/config"
+DATE=$(date +%Y%m%d)
+TOMCAT_HOME="/opt/tomcat"
+SAKAI_HOME="/var/sakai"
+
+tar -czf $BACKUP_DIR/config_$DATE.tar.gz \
+  $SAKAI_HOME/sakai.properties \
+  $TOMCAT_HOME/conf/ \
+  $TOMCAT_HOME/bin/setenv.sh \
+  /etc/httpd/conf.d/sakai.conf
+```
+
+## Automated Backup Script
+
+### Complete Backup Solution
+
+```bash
+#!/bin/bash
+# Comprehensive Sakai backup script
+
+set -e
+
+# Configuration
+BACKUP_ROOT="/backup/sakai"
+DATE=$(date +%Y%m%d_%H%M%S)
+RETENTION_DAYS=30
+DB_NAME="sakai"
+DB_USER="sakai"
+DB_PASS="$(cat /root/.mysql_password)"
+CONTENT_DIR="/var/sakai/content"
+LOG_FILE="$BACKUP_ROOT/backup.log"
+
+# Logging function
+log() {
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a $LOG_FILE
+}
+
+log "Starting Sakai backup"
+
+# 1. Database backup
+log "Backing up database..."
+mkdir -p $BACKUP_ROOT/database
+mysqldump -u $DB_USER -p$DB_PASS \
+  --single-transaction \
+  --routines --triggers --events \
+  $DB_NAME | gzip > $BACKUP_ROOT/database/sakai_$DATE.sql.gz
+
+if [ $? -eq 0 ]; then
+  log "Database backup completed"
+else
+  log "ERROR: Database backup failed"
+  exit 1
+fi
+
+# 2. Content hosting backup
+log "Backing up content hosting..."
+mkdir -p $BACKUP_ROOT/content/$DATE
+rsync -avz --delete \
+  --link-dest=$BACKUP_ROOT/content/latest \
+  $CONTENT_DIR/ \
+  $BACKUP_ROOT/content/$DATE/
+
+ln -snf $BACKUP_ROOT/content/$DATE $BACKUP_ROOT/content/latest
+log "Content backup completed"
+
+# 3. Configuration backup
+log "Backing up configuration..."
+mkdir -p $BACKUP_ROOT/config
+tar -czf $BACKUP_ROOT/config/config_$DATE.tar.gz \
+  /var/sakai/sakai.properties \
+  /opt/tomcat/conf/ \
+  /opt/tomcat/bin/setenv.sh
+
+log "Configuration backup completed"
+
+# 4. Cleanup old backups
+log "Cleaning up old backups..."
+find $BACKUP_ROOT/database -name "*.sql.gz" -mtime +$RETENTION_DAYS -delete
+find $BACKUP_ROOT/config -name "*.tar.gz" -mtime +$RETENTION_DAYS -delete
+find $BACKUP_ROOT/content -maxdepth 1 -type d -mtime +$RETENTION_DAYS -exec rm -rf {} \;
+
+log "Backup completed successfully"
+
+# 5. Send backup status notification
+# mail -s "Sakai Backup Status" admin@example.com < $LOG_FILE
+```
+
+### Schedule with Cron
+
+```bash
+# crontab -e
+# Daily backup at 2 AM
+0 2 * * * /usr/local/bin/sakai-backup.sh
+
+# Hourly incremental database backup
+0 * * * * /usr/local/bin/sakai-incremental-backup.sh
+```
+
+## Disaster Recovery Testing
+
+### Test Restore Procedure
+
+<Steps>
+1. Create a test environment separate from production
+2. Restore database from latest backup
+3. Restore content hosting files
+4. Verify application starts successfully
+5. Test critical functionality (login, content access, submissions)
+6. Document any issues and recovery time
+</Steps>
+
+<Warning>
+Test your restore procedures at least quarterly. Untested backups are not backups.
+</Warning>
+
+## Restore Procedures
+
+### Database Restore
+
+#### MySQL/MariaDB Full Restore
+
+```bash
+#!/bin/bash
+BACKUP_FILE="/backup/sakai/database/sakai_20260304_020000.sql.gz"
+DB_NAME="sakai"
+DB_USER="sakai"
+DB_PASS="your_password"
+
+# Stop Tomcat
+systemctl stop tomcat
+
+# Drop and recreate database
+mysql -u root -p << EOF
+DROP DATABASE IF EXISTS $DB_NAME;
+CREATE DATABASE $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL ON $DB_NAME.* TO '$DB_USER'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+
+# Restore from backup
+zcat $BACKUP_FILE | mysql -u $DB_USER -p$DB_PASS $DB_NAME
+
+# Start Tomcat
+systemctl start tomcat
+```
+
+#### Point-in-Time Recovery (MySQL)
+
+```bash
+#!/bin/bash
+# Restore to specific timestamp
+
+FULL_BACKUP="/backup/sakai/database/sakai_20260304_020000.sql.gz"
+BINLOG_DIR="/backup/sakai/binlogs/20260304"
+TARGET_TIME="2026-03-04 14:30:00"
+
+# 1. Restore full backup
+zcat $FULL_BACKUP | mysql -u sakai -p sakai
+
+# 2. Apply binary logs up to target time
+mysqlbinlog --stop-datetime="$TARGET_TIME" \
+  $BINLOG_DIR/mysql-bin.* | mysql -u sakai -p sakai
+```
+
+#### Oracle Restore
+
+```sql
+-- RMAN restore
+RMAN> SHUTDOWN IMMEDIATE;
+RMAN> STARTUP MOUNT;
+RMAN> RESTORE DATABASE;
+RMAN> RECOVER DATABASE;
+RMAN> ALTER DATABASE OPEN;
+```
+
+### Content Hosting Restore
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/sakai/content/20260304"
+CONTENT_DIR="/var/sakai/content"
+
+# Stop Tomcat
+systemctl stop tomcat
+
+# Backup current content (safety)
+mv $CONTENT_DIR $CONTENT_DIR.pre-restore
+
+# Restore from backup
+rsync -avz $BACKUP_DIR/ $CONTENT_DIR/
+
+# Fix permissions
+chown -R tomcat:tomcat $CONTENT_DIR
+
+# Start Tomcat
+systemctl start tomcat
+```
+
+### Configuration Restore
+
+```bash
+#!/bin/bash
+CONFIG_BACKUP="/backup/sakai/config/config_20260304.tar.gz"
+
+# Extract configuration
+tar -xzf $CONFIG_BACKUP -C /
+
+# Restart services
+systemctl restart tomcat
+```
+
+## Special Considerations
+
+### Site Statistics Database
+
+If using a separate statistics database:
+
+```bash
+# Backup site statistics
+mysqldump -u stats_user -p \
+  --single-transaction \
+  sakai_stats | gzip > /backup/sakai/stats_$DATE.sql.gz
+```
+
+<Note>
+You may choose not to restore statistics in disaster recovery scenarios as they are not critical for system operation.
+</Note>
+
+### Search Index
+
+If using Elasticsearch for search:
+
+```bash
+# Elasticsearch snapshot
+curl -X PUT "localhost:9200/_snapshot/sakai_backup/snapshot_$DATE?wait_for_completion=true"
+
+# Restore snapshot
+curl -X POST "localhost:9200/_snapshot/sakai_backup/snapshot_$DATE/_restore"
+```
+
+<Note>
+Sakai can rebuild the search index from database content, so search index backups are optional.
+</Note>
+
+### Content-Review Integration
+
+For Turnitin or other content-review integrations:
+
+```properties
+# Disable indexing in QA/restore environments
+contentreview.enableContentReview=false
+```
+
+<Warning>
+When restoring production data to QA/staging environments, disable content-review indexing to prevent duplicate submissions.
+</Warning>
+
+## Offsite Backup
+
+### Cloud Storage Sync
+
+```bash
+#!/bin/bash
+# Sync backups to AWS S3
+BACKUP_DIR="/backup/sakai"
+S3_BUCKET="s3://my-sakai-backups"
+
+aws s3 sync $BACKUP_DIR $S3_BUCKET \
+  --storage-class GLACIER \
+  --exclude "*.tmp" \
+  --delete
+```
+
+### Encryption for Offsite Storage
+
+```bash
+#!/bin/bash
+# Encrypt backup before upload
+BACKUP_FILE="sakai_full_$DATE.sql.gz"
+GPG_RECIPIENT="backup@example.com"
+
+gpg --encrypt --recipient $GPG_RECIPIENT $BACKUP_FILE
+aws s3 cp ${BACKUP_FILE}.gpg s3://my-sakai-backups/
+```
+
+## Recovery Time Objectives
+
+| Scenario | RTO Target | RPO Target |
+|----------|------------|------------|
+| Database corruption | 2 hours | 5 minutes |
+| Complete server failure | 4 hours | 1 hour |
+| Data center disaster | 24 hours | 24 hours |
+| Accidental deletion | 1 hour | 1 hour |
+
+**RTO** = Recovery Time Objective (time to restore service)  
+**RPO** = Recovery Point Objective (acceptable data loss)
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="3-2-1 Rule" icon="shield">
+    Maintain 3 copies of data, on 2 different media types, with 1 copy offsite.
+  </Card>
+  
+  <Card title="Test Regularly" icon="vial">
+    Test restore procedures quarterly. Update documentation based on test results.
+  </Card>
+  
+  <Card title="Monitor Backups" icon="bell">
+    Set up alerts for backup failures. Verify backup integrity automatically.
+  </Card>
+  
+  <Card title="Document Everything" icon="book">
+    Maintain runbooks for recovery procedures. Include contact information for vendors.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Backup Failures
+
+**Problem**: Database backup fails with "Lock wait timeout"
+
+**Solution**: Use `--single-transaction` for InnoDB tables or schedule backups during low-usage periods.
+
+**Problem**: Content backup takes too long
+
+**Solution**: Use incremental backups with rsync or implement block-level snapshots.
+
+### Restore Issues
+
+**Problem**: Restored database has different character encoding
+
+**Solution**: Ensure database is created with correct charset:
+```sql
+CREATE DATABASE sakai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**Problem**: Content files have wrong permissions after restore
+
+**Solution**: Fix ownership recursively:
+```bash
+chown -R tomcat:tomcat /var/sakai/content
+chmod -R 755 /var/sakai/content
+```
+
+## Related Resources
+
+- [Monitoring and Logging](/deployment/monitoring)
+- [Performance Tuning](/deployment/performance-tuning)
+- [Upgrade Procedures](/deployment/upgrades)

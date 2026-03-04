@@ -1,0 +1,450 @@
+---
+title: Tool Architecture
+description: Understanding Sakai tool structure, registration, and integration with the kernel and portal
+---
+
+# Tool Architecture
+
+Sakai tools are modular web applications that provide specific functionality like assignments, gradebook, or forums. Tools integrate with the kernel services and are rendered within the portal framework.
+
+## What is a Tool?
+
+A **tool** is a user interface component that provides specific educational functionality. Tools are:
+
+- **Self-contained**: Each tool is a separate web application
+- **Service-based**: Tools use kernel services for core functionality
+- **Portal-rendered**: Tools render within the portal's iframe or portlet containers
+- **Site-scoped**: Tools are placed within sites and pages
+
+## Tool Interface
+
+The core `Tool` interface defines the contract for all Sakai tools:
+
+<CodeGroup>
+
+```java Tool Interface
+package org.sakaiproject.tool.api;
+
+/**
+ * Tool models a Sakai user interface producing tool.
+ * Tool and its attributes are immutable.
+ */
+public interface Tool {
+    /** Request attribute for document fragment mode */
+    public static final String FRAGMENT = "sakai.fragment";
+    
+    /** Request attribute for portlet mode */
+    public static final String PORTLET = "sakai.portlet";
+    
+    /** Request attribute containing the Tool definition */
+    public static final String TOOL = "sakai.tool";
+    
+    /** Request attribute containing the ToolSession */
+    public static final String TOOL_SESSION = "sakai.tool.session";
+    
+    /** Request attribute containing Tool placement */
+    public static final String PLACEMENT = "sakai.tool.placement";
+    
+    /** Request attribute/parameter for placement id */
+    public static final String PLACEMENT_ID = "sakai.tool.placement.id";
+    
+    /**
+     * Access the well known id of the tool.
+     */
+    String getId();
+    
+    /**
+     * Access the tool's home destination.
+     */
+    String getHome();
+    
+    /**
+     * Access the tool title.
+     */
+    String getTitle();
+    
+    /**
+     * Access the tool description.
+     */
+    String getDescription();
+    
+    /**
+     * Access the configuration properties from registration.
+     */
+    Properties getRegisteredConfig();
+}
+```
+
+```java Accessing Tool Information
+// Get current tool from request
+Tool tool = (Tool) request.getAttribute(Tool.TOOL);
+
+// Get tool ID
+String toolId = tool.getId();
+
+// Get tool placement (instance in a site)
+Placement placement = (Placement) request.getAttribute(Tool.PLACEMENT);
+String placementId = placement.getId();
+String siteId = placement.getContext();
+```
+
+</CodeGroup>
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/tool/api/Tool.java:27-100](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/tool/api/Tool.java:27-100)
+
+## Tool Module Structure
+
+Typical tool structure follows this pattern:
+
+```
+tool-name/
+├── api/                        # Service interfaces (optional)
+│   └── src/main/java/
+│       └── org/sakaiproject/toolname/api/
+├── impl/                       # Service implementations (optional)
+│   └── src/
+│       ├── main/java/
+│       └── main/webapp/WEB-INF/
+│           └── components.xml
+├── tool/                       # Web application (UI)
+│   └── src/
+│       ├── main/java/         # Controllers, servlets
+│       ├── main/webapp/       # JSP, HTML, CSS, JS
+│       └── main/resources/    # i18n bundles
+└── pom.xml
+```
+
+### Example: Assignment Tool Structure
+
+```
+assignment/
+├── api/          # Assignment service API
+├── impl/         # Assignment service implementation
+└── tool/         # Assignment web UI
+```
+
+Reference: [source/assignment/](/home/daytona/workspace/source/assignment/)
+
+<Note>
+Not all tools have separate API/implementation modules. Simple tools may only have a `tool/` module that uses existing kernel services.
+</Note>
+
+## Tool Types
+
+Sakai supports different types of tools based on their rendering approach:
+
+<Tabs>
+  <Tab title="Standard Tools">
+    Traditional tools that render full HTML pages within an iframe.
+    
+    - Most common tool type
+    - Full control over HTML/CSS/JS
+    - Rendered via `IFrameToolRenderService`
+    
+    Examples: Assignments, Gradebook, Resources
+  </Tab>
+  
+  <Tab title="Portlet Tools">
+    Tools that follow the JSR-168/286 portlet specification.
+    
+    - Rendered as portal fragments
+    - Use `PortletToolRenderService`
+    - Less common in modern Sakai
+  </Tab>
+  
+  <Tab title="Helper Tools">
+    Lightweight tools that provide specific helper functionality.
+    
+    - Used by other tools
+    - Return to parent tool when done
+    - Use `HELPER_DONE_URL` session attribute
+  </Tab>
+</Tabs>
+
+Reference: [portal/README.md:25-26](/home/daytona/workspace/source/portal/README.md:25-26)
+
+## Tool Registration
+
+Tools are registered in the system through configuration files that define:
+
+- Tool ID (unique identifier)
+- Title and description
+- Categories and keywords
+- Required permissions
+- Configuration properties
+
+### Tool Order Configuration
+
+The system maintains a default tool ordering:
+
+Reference: [kernel/component-manager/src/main/bundle/org/sakaiproject/config/toolOrder.xml](/home/daytona/workspace/source/kernel/component-manager/src/main/bundle/org/sakaiproject/config/toolOrder.xml)
+
+## Tool Integration with Kernel Services
+
+Tools should use kernel services for all core functionality:
+
+<CodeGroup>
+
+```java Tool Service Integration
+public class AssignmentController {
+    
+    // Inject kernel services
+    private SiteService siteService;
+    private UserDirectoryService userService;
+    private ContentHostingService contentService;
+    private EventTrackingService eventService;
+    
+    public void init() {
+        // Get services from ComponentManager
+        siteService = ComponentManager.get(SiteService.class);
+        userService = ComponentManager.get(UserDirectoryService.class);
+        contentService = ComponentManager.get(ContentHostingService.class);
+        eventService = ComponentManager.get(EventTrackingService.class);
+    }
+    
+    public void submitAssignment(String assignmentId) {
+        // Get current user
+        User user = userService.getCurrentUser();
+        
+        // Get current site
+        String siteId = ToolManager.getCurrentPlacement().getContext();
+        Site site = siteService.getSite(siteId);
+        
+        // Post event
+        Event event = eventService.newEvent(
+            "assignment.submit",
+            "/assignment/a/" + assignmentId,
+            true
+        );
+        eventService.post(event);
+    }
+}
+```
+
+```java Spring Configuration
+<!-- components.xml -->
+<beans>
+    <bean id="assignmentController" 
+          class="org.sakaiproject.assignment.tool.AssignmentController"
+          init-method="init">
+        
+        <!-- Dependencies injected automatically via ComponentManager -->
+    </bean>
+</beans>
+```
+
+</CodeGroup>
+
+<Warning>
+**Don't implement your own user management, authorization, or content storage.** Always use kernel services:
+
+- User management → `UserDirectoryService`
+- Authorization → `AuthzGroupService`  
+- Content storage → `ContentHostingService`
+- Email → `EmailService`
+</Warning>
+
+## Tool Placement
+
+A **placement** is an instance of a tool within a site page. The same tool can be placed multiple times with different configurations.
+
+```java
+// Get current placement
+Placement placement = ToolManager.getCurrentPlacement();
+
+// Get placement context (site ID)
+String siteId = placement.getContext();
+
+// Get placement configuration
+Properties config = placement.getConfig();
+String customSetting = config.getProperty("custom.setting");
+
+// Get placement ID (unique instance ID)
+String placementId = placement.getId();
+```
+
+## Portal URL Patterns
+
+Tools can be accessed through various portal URL patterns:
+
+### Standard Tool Access
+
+```
+/portal/site/{site-id}/page/{page-id}
+```
+
+### Direct Tool Access
+
+Bypass site navigation and go directly to a tool:
+
+```
+/portal/directtool/{tool-id}?sakai.site={site-id}
+```
+
+Examples:
+- `/portal/directtool/sakai.samigo?sakai.site=e4a2b1db-f452-4ef0-8aee-b4bdde701c8c`
+- `/portal/directtool/sakai.rsf.evaluation?sakai.site=~`
+
+Reference: [portal/README.md:36-44](/home/daytona/workspace/source/portal/README.md:36-44)
+
+## Tool Development Frameworks
+
+Sakai supports multiple frameworks for tool development:
+
+<AccordionGroup>
+  <Accordion title="Spring MVC + Thymeleaf (Recommended)">
+    **Preferred for new development**
+    
+    - Modern Spring MVC controllers
+    - Thymeleaf templating
+    - RESTful endpoints
+    - Clean separation of concerns
+    
+    ```java
+    @Controller
+    @RequestMapping("/assignments")
+    public class AssignmentController {
+        
+        @GetMapping("/list")
+        public String listAssignments(Model model) {
+            model.addAttribute("assignments", assignmentService.getAssignments());
+            return "assignment/list";
+        }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Web Components + Lit">
+    **Strategic direction for frontend**
+    
+    - Encapsulated, reusable components
+    - Shadow DOM for style isolation
+    - Modern JavaScript (ES2022+)
+    - Integration with existing tools
+    
+    ```javascript
+    import { LitElement, html, css } from 'lit';
+    
+    class SakaiAssignment extends LitElement {
+      static properties = {
+        assignmentId: { type: String }
+      };
+      
+      render() {
+        return html`<div class="assignment">...</div>`;
+      }
+    }
+    
+    customElements.define('sakai-assignment', SakaiAssignment);
+    ```
+  </Accordion>
+  
+  <Accordion title="JSF 2.3">
+    Used in many existing tools
+    
+    - Component-based framework
+    - Still supported but not recommended for new tools
+  </Accordion>
+  
+  <Accordion title="Wicket">
+    Component-based web framework
+    
+    - Used in several tools
+    - Good for complex UIs
+    - Not recommended for new development
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+### 1. Use Kernel Services
+
+✅ **Correct:**
+```java
+UserDirectoryService userService = ComponentManager.get(UserDirectoryService.class);
+User user = userService.getCurrentUser();
+```
+
+❌ **Incorrect:**
+```java
+// Don't implement your own user management!
+User user = new User(session.getAttribute("userId"));
+```
+
+### 2. Post Events for Significant Actions
+
+```java
+// Post events for analytics and integration
+Event event = eventService.newEvent(
+    "assignment.submit",      // Event type
+    assignmentReference,       // Resource reference  
+    true                       // Is modification?
+);
+eventService.post(event);
+```
+
+### 3. Internationalization
+
+Always support i18n:
+
+```java
+// Load resource bundle
+ResourceLoader rb = new ResourceLoader("org.sakaiproject.tool.bundle");
+
+// Get localized string
+String message = rb.getString("assignment.submit.success");
+```
+
+### 4. Accessibility
+
+Follow accessibility best practices:
+- Semantic HTML
+- ARIA labels where needed
+- Keyboard navigation
+- Screen reader support
+
+### 5. Responsive Design
+
+Use Bootstrap 5.2 for responsive layouts:
+
+```html
+<div class="container">
+  <div class="row">
+    <div class="col-md-8">Main content</div>
+    <div class="col-md-4">Sidebar</div>
+  </div>
+</div>
+```
+
+## Tool Helper Pattern
+
+Tools can use helper tools for specific functionality:
+
+```java
+// Set return URL for helper
+SessionManager.getCurrentToolSession()
+    .setAttribute(Tool.HELPER_DONE_URL, returnUrl);
+
+// Redirect to helper tool
+response.sendRedirect("/sakai-filepicker-helper/tool");
+```
+
+When the helper completes, it redirects back to `HELPER_DONE_URL`.
+
+Reference: [kernel/api/src/main/java/org/sakaiproject/tool/api/Tool.java:56](/home/daytona/workspace/source/kernel/api/src/main/java/org/sakaiproject/tool/api/Tool.java:56)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" href="/concepts/architecture" icon="diagram-project">
+    Understand the overall system architecture
+  </Card>
+  
+  <Card title="Kernel Services" href="/concepts/kernel" icon="server">
+    Learn about available kernel services
+  </Card>
+  
+  <Card title="Sites & Workspaces" href="/concepts/sites-and-workspaces" icon="sitemap">
+    Understand how tools are organized in sites
+  </Card>
+</CardGroup>

@@ -1,0 +1,997 @@
+---
+title: AuthzGroupService API
+description: Authorization and permission management service for Sakai LMS
+---
+
+The `AuthzGroupService` manages authorization groups (realms) in Sakai. This service allows you to check if a user is allowed to perform a particular function in a context.
+
+## Overview
+
+Package: `org.sakaiproject.authz.api`
+
+The AuthzGroupService provides:
+
+- Authorization group (realm) management
+- Role-based permission checking
+- User membership and role assignment
+- Function-based access control
+- Provider integration for external groups
+
+<Warning>
+  This service doesn't verify that user IDs returned are still valid. If you need to ensure a user exists, check with UserDirectoryService. Deleted user entries in AuthzGroups should be cleaned up but currently may persist.
+</Warning>
+
+## Key Concepts
+
+- **AuthzGroup (Realm)**: A container for users, roles, and permissions (e.g., `/site/biology-101`)
+- **Role**: A named set of permissions (e.g., "Student", "Instructor", "maintain")
+- **Function**: A specific permission (e.g., "site.upd", "content.read", "assignment.submit")
+- **Member**: A user with a role in an AuthzGroup
+- **Provider**: External source for group membership (e.g., course roster system)
+
+## Constants
+
+<ParamField path="APPLICATION_ID" type="String" default="sakai:authzGroup">
+  Application identifier for the authorization service
+</ParamField>
+
+<ParamField path="REFERENCE_ROOT" type="String" default="/realm">
+  Root path for realm references
+</ParamField>
+
+<ParamField path="ANON_ROLE" type="String" default=".anon">
+  Standard role name for anonymous users
+</ParamField>
+
+<ParamField path="AUTH_ROLE" type="String" default=".auth">
+  Standard role name for authenticated users
+</ParamField>
+
+## Security Functions
+
+<ParamField path="SECURE_ADD_AUTHZ_GROUP" type="String" default="realm.add">
+  Permission to add an AuthzGroup
+</ParamField>
+
+<ParamField path="SECURE_REMOVE_AUTHZ_GROUP" type="String" default="realm.del">
+  Permission to remove an AuthzGroup
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_AUTHZ_GROUP" type="String" default="realm.upd">
+  Permission to update an AuthzGroup
+</ParamField>
+
+<ParamField path="SECURE_UPDATE_OWN_AUTHZ_GROUP" type="String" default="realm.upd.own">
+  Permission to update one's own relationship in an AuthzGroup
+</ParamField>
+
+<ParamField path="SECURE_JOIN_AUTHZ_GROUP" type="String" default="realm.join">
+  Permission to join an AuthzGroup
+</ParamField>
+
+<ParamField path="SECURE_UNJOIN_AUTHZ_GROUP" type="String" default="realm.unjoin">
+  Permission to unjoin an AuthzGroup
+</ParamField>
+
+## Core Methods
+
+### AuthzGroup Access
+
+#### getAuthzGroup
+
+```java
+AuthzGroup getAuthzGroup(String id) throws GroupNotDefinedException
+```
+
+Access an AuthzGroup by ID.
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID (e.g., "/site/biology-101")
+</ParamField>
+
+<ResponseField name="AuthzGroup" type="AuthzGroup">
+  The AuthzGroup object
+</ResponseField>
+
+**Throws:**
+- `GroupNotDefinedException` - if not found
+
+**Example:**
+```java
+try {
+    AuthzGroup realm = authzGroupService.getAuthzGroup("/site/biology-101");
+    
+    // Get members
+    Set<Member> members = realm.getMembers();
+    for (Member member : members) {
+        String userId = member.getUserId();
+        String role = member.getRole().getId();
+        System.out.println(userId + " has role " + role);
+    }
+    
+    // Get roles
+    Set<Role> roles = realm.getRoles();
+    for (Role role : roles) {
+        Set<String> functions = role.getAllowedFunctions();
+    }
+} catch (GroupNotDefinedException e) {
+    // AuthzGroup not found
+}
+```
+
+---
+
+#### getAuthzGroups
+
+```java
+List<AuthzGroup> getAuthzGroups(String criteria, PagingPosition page)
+```
+
+Access a list of AuthzGroups matching criteria.
+
+<Warning>
+  The group objects returned will not have associated roles loaded. To save a realm, retrieve it with `getAuthzGroup(String)`.
+</Warning>
+
+<ParamField path="criteria" type="String">
+  Selection criteria: match this string in ID or provider group ID
+</ParamField>
+
+<ParamField path="page" type="PagingPosition">
+  Subset of items to return
+</ParamField>
+
+<ResponseField name="List<AuthzGroup>" type="List<AuthzGroup>">
+  List of AuthzGroups matching criteria (naturally sorted)
+</ResponseField>
+
+---
+
+#### countAuthzGroups
+
+```java
+int countAuthzGroups(String criteria)
+```
+
+Count AuthzGroups matching criteria.
+
+<ParamField path="criteria" type="String">
+  Selection criteria
+</ParamField>
+
+<ResponseField name="int" type="int">
+  Count of matching AuthzGroups
+</ResponseField>
+
+---
+
+### AuthzGroup Creation
+
+#### addAuthzGroup
+
+```java
+AuthzGroup addAuthzGroup(String id) 
+    throws GroupIdInvalidException, GroupAlreadyDefinedException, AuthzPermissionException
+```
+
+Add a new AuthzGroup.
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="AuthzGroup" type="AuthzGroup">
+  The new AuthzGroup
+</ResponseField>
+
+**Throws:**
+- `GroupIdInvalidException` - if the ID is invalid
+- `GroupAlreadyDefinedException` - if the ID is already used
+- `AuthzPermissionException` - if current user lacks permission
+
+**Example:**
+```java
+try {
+    AuthzGroup realm = authzGroupService.addAuthzGroup("/site/new-site");
+    
+    // Add a role
+    Role instructorRole = realm.addRole("Instructor");
+    instructorRole.allowFunction("site.upd");
+    instructorRole.allowFunction("content.new");
+    
+    // Add a member
+    realm.addMember(userId, "Instructor", true, false);
+    
+    // Save
+    authzGroupService.save(realm);
+} catch (GroupAlreadyDefinedException e) {
+    // Realm already exists
+}
+```
+
+---
+
+#### addAuthzGroup (Copy)
+
+```java
+AuthzGroup addAuthzGroup(String id, AuthzGroup other, String maintainUserId)
+    throws GroupIdInvalidException, GroupAlreadyDefinedException, AuthzPermissionException
+```
+
+Add a new AuthzGroup as a copy of another, giving a user maintain access.
+
+<ParamField path="id" type="String" required>
+  The new AuthzGroup ID
+</ParamField>
+
+<ParamField path="other" type="AuthzGroup" required>
+  The AuthzGroup to copy
+</ParamField>
+
+<ParamField path="maintainUserId" type="String">
+  Optional user ID to get maintain access, or null
+</ParamField>
+
+<ResponseField name="AuthzGroup" type="AuthzGroup">
+  The new AuthzGroup object
+</ResponseField>
+
+---
+
+#### newAuthzGroup
+
+```java
+AuthzGroup newAuthzGroup(String id, AuthzGroup other, String maintainUserId)
+    throws GroupAlreadyDefinedException
+```
+
+Create a new AuthzGroup without saving it. Can be saved later with `save()`.
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ParamField path="other" type="AuthzGroup">
+  AuthzGroup to copy (or null)
+</ParamField>
+
+<ParamField path="maintainUserId" type="String">
+  Optional user ID to get maintain access
+</ParamField>
+
+<ResponseField name="AuthzGroup" type="AuthzGroup">
+  The new unsaved AuthzGroup object
+</ResponseField>
+
+---
+
+### AuthzGroup Modification
+
+#### save
+
+```java
+void save(AuthzGroup azGroup) 
+    throws GroupNotDefinedException, AuthzPermissionException
+```
+
+Save changes to an AuthzGroup. The AuthzGroup must already exist.
+
+<Warning>
+  This method refreshes current memberships based on the group's associated provider, if any. This updates site memberships based on course enrollment records.
+</Warning>
+
+<ParamField path="azGroup" type="AuthzGroup" required>
+  The AuthzGroup to save
+</ParamField>
+
+**Throws:**
+- `GroupNotDefinedException` - if the AuthzGroup ID is not defined
+- `AuthzPermissionException` - if current user lacks permission
+
+**Example:**
+```java
+try {
+    AuthzGroup realm = authzGroupService.getAuthzGroup("/site/biology-101");
+    
+    // Add a new member
+    realm.addMember(studentId, "Student", true, false);
+    
+    // Update a role's permissions
+    Role taRole = realm.getRole("Teaching Assistant");
+    taRole.allowFunction("assignment.grade");
+    
+    // Save changes
+    authzGroupService.save(realm);
+} catch (AuthzPermissionException e) {
+    // User cannot update this realm
+}
+```
+
+---
+
+### AuthzGroup Removal
+
+#### removeAuthzGroup
+
+```java
+void removeAuthzGroup(AuthzGroup azGroup) 
+    throws AuthzPermissionException, AuthzRealmLockException
+```
+
+Remove an AuthzGroup.
+
+<ParamField path="azGroup" type="AuthzGroup" required>
+  The AuthzGroup to remove
+</ParamField>
+
+**Throws:**
+- `AuthzPermissionException` - if current user lacks permission
+- `AuthzRealmLockException` - if the group has a lock preventing removal
+
+---
+
+#### removeAuthzGroup (by ID)
+
+```java
+void removeAuthzGroup(String id) 
+    throws AuthzPermissionException, AuthzRealmLockException
+```
+
+Remove the AuthzGroup with this ID (fails quietly if not found).
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+---
+
+### Permission Checking
+
+#### isAllowed (Single Group)
+
+```java
+boolean isAllowed(String userId, String function, String azGroupId)
+```
+
+Test if a user is allowed to perform a function in an AuthzGroup.
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+<ParamField path="function" type="String" required>
+  The function to check (e.g., "site.upd", "content.read")
+</ParamField>
+
+<ParamField path="azGroupId" type="String" required>
+  The AuthzGroup ID to consult
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+**Example:**
+```java
+String userId = sessionManager.getCurrentSessionUserId();
+String siteId = "/site/biology-101";
+
+if (authzGroupService.isAllowed(userId, "site.upd", siteId)) {
+    // User can update this site
+}
+
+if (authzGroupService.isAllowed(userId, "assignment.grade", siteId)) {
+    // User can grade assignments in this site
+}
+```
+
+---
+
+#### isAllowed (Multiple Groups)
+
+```java
+boolean isAllowed(String userId, String function, Collection<String> azGroups)
+```
+
+Test if a user is allowed to perform a function in any of the named AuthzGroups.
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+<ParamField path="function" type="String" required>
+  The function to check
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>" required>
+  Collection of AuthzGroup IDs to consult
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed in any group, false otherwise
+</ResponseField>
+
+**Example:**
+```java
+// Check if user can access any section's resources
+List<String> sectionRealms = Arrays.asList(
+    "/site/bio-101/group/section-a",
+    "/site/bio-101/group/section-b"
+);
+
+if (authzGroupService.isAllowed(userId, "content.read", sectionRealms)) {
+    // User can read content in at least one section
+}
+```
+
+---
+
+### User and Role Queries
+
+#### getUsersIsAllowed
+
+```java
+Set<String> getUsersIsAllowed(String function, Collection<String> azGroups)
+```
+
+Get the set of user IDs who are allowed to perform a function in the named AuthzGroups.
+
+<ParamField path="function" type="String" required>
+  The function to check
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>" required>
+  Collection of AuthzGroup IDs to consult
+</ParamField>
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of user IDs who are allowed to perform the function
+</ResponseField>
+
+**Example:**
+```java
+// Get all instructors in a site
+Set<String> instructors = authzGroupService.getUsersIsAllowed(
+    "site.upd",
+    Collections.singleton("/site/biology-101")
+);
+
+for (String instructorId : instructors) {
+    User user = userDirectoryService.getUser(instructorId);
+    System.out.println("Instructor: " + user.getDisplayName());
+}
+```
+
+---
+
+#### getUsersIsAllowedByGroup
+
+```java
+Set<String[]> getUsersIsAllowedByGroup(String function, Collection<String> azGroups)
+```
+
+Get user IDs per group who are allowed to perform a function.
+
+<ParamField path="function" type="String" required>
+  The function to check
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>" required>
+  Collection of AuthzGroup IDs (null to search all)
+</ParamField>
+
+<ResponseField name="Set<String[]>" type="Set<String[]>">
+  Set of String arrays [userId, realmId] for users allowed to perform the function
+</ResponseField>
+
+**Example:**
+```java
+// Get all graders organized by section
+Set<String[]> gradersBySection = authzGroupService.getUsersIsAllowedByGroup(
+    "assignment.grade",
+    Arrays.asList(
+        "/site/bio-101/group/section-a",
+        "/site/bio-101/group/section-b"
+    )
+);
+
+for (String[] entry : gradersBySection) {
+    String userId = entry[0];
+    String realmId = entry[1];
+    System.out.println(userId + " can grade in " + realmId);
+}
+```
+
+---
+
+#### getUserCountIsAllowed
+
+```java
+Map<String, Integer> getUserCountIsAllowed(String function, Collection<String> azGroups)
+```
+
+Get the number of users per group allowed to perform a function.
+
+<ParamField path="function" type="String" required>
+  The function to check
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>" required>
+  Collection of AuthzGroup IDs (null to search all)
+</ParamField>
+
+<ResponseField name="Map<String, Integer>" type="Map<String, Integer>">
+  Map of authzGroupId to user count
+</ResponseField>
+
+---
+
+#### getAuthzGroupsIsAllowed
+
+```java
+Set<String> getAuthzGroupsIsAllowed(String userId, String function, 
+                                    Collection<String> azGroups)
+```
+
+Get the set of AuthzGroup IDs where a user is allowed to perform a function.
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+<ParamField path="function" type="String" required>
+  The function to check
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>">
+  Collection of AuthzGroup IDs to search (null to search all)
+</ParamField>
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of AuthzGroup IDs where user is allowed the function
+</ResponseField>
+
+**Example:**
+```java
+// Find all sites where user can grade assignments
+Set<String> gradingSites = authzGroupService.getAuthzGroupsIsAllowed(
+    userId,
+    "assignment.grade",
+    null  // Search all sites
+);
+
+for (String realmId : gradingSites) {
+    // Extract site ID from realm ID
+    String siteId = realmId.substring("/site/".length());
+    Site site = siteService.getSite(siteId);
+    System.out.println("Can grade in: " + site.getTitle());
+}
+```
+
+---
+
+#### getUserRole
+
+```java
+String getUserRole(String userId, String azGroupId)
+```
+
+Get the role name for a user in an AuthzGroup.
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+<ParamField path="azGroupId" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The role name, or null if user is not a member
+</ResponseField>
+
+**Example:**
+```java
+String role = authzGroupService.getUserRole(userId, "/site/biology-101");
+if (role != null) {
+    System.out.println("User has role: " + role);
+} else {
+    System.out.println("User is not a member");
+}
+```
+
+---
+
+#### getUserRoles
+
+```java
+Map<String, String> getUserRoles(String userId, Collection<String> azGroupIds)
+```
+
+Get all role names for a user in a set of AuthzGroups.
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+<ParamField path="azGroupIds" type="Collection<String>">
+  Collection of AuthzGroup IDs to search (null or empty to search all)
+</ParamField>
+
+<ResponseField name="Map<String, String>" type="Map<String, String>">
+  Map of AuthzGroup ID to role name for groups where user is a member
+</ResponseField>
+
+---
+
+#### getUsersRole
+
+```java
+Map<String, String> getUsersRole(Collection<String> userIds, String azGroupId)
+```
+
+Get role names for multiple users in one AuthzGroup.
+
+<ParamField path="userIds" type="Collection<String>" required>
+  Collection of user IDs
+</ParamField>
+
+<ParamField path="azGroupId" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="Map<String, String>" type="Map<String, String>">
+  Map of userId to role name (only includes active members)
+</ResponseField>
+
+---
+
+#### getAllowedFunctions
+
+```java
+Set<String> getAllowedFunctions(String role, Collection<String> azGroups)
+```
+
+Get functions that users with a role in these AuthzGroups can perform.
+
+<ParamField path="role" type="String" required>
+  The role name
+</ParamField>
+
+<ParamField path="azGroups" type="Collection<String>" required>
+  Collection of AuthzGroup IDs
+</ParamField>
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of function names
+</ResponseField>
+
+---
+
+### Membership Management
+
+#### joinGroup
+
+```java
+void joinGroup(String authzGroupId, String role) 
+    throws GroupNotDefinedException, AuthzPermissionException, AuthzRealmLockException
+```
+
+Cause the current user to join an AuthzGroup with a role.
+
+<ParamField path="authzGroupId" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ParamField path="role" type="String" required>
+  The role name
+</ParamField>
+
+**Throws:**
+- `GroupNotDefinedException` - if authzGroupId or role not defined
+- `AuthzPermissionException` - if current user lacks permission
+- `AuthzRealmLockException` - if group has a lock preventing changes
+
+---
+
+#### joinGroup (With Size Limit)
+
+```java
+void joinGroup(String authzGroupId, String role, int maxSize)
+    throws GroupNotDefinedException, AuthzPermissionException, 
+           GroupFullException, AuthzRealmLockException
+```
+
+Join a group only if it won't exceed the maximum size.
+
+<ParamField path="maxSize" type="int" required>
+  Maximum permitted size of the AuthzGroup
+</ParamField>
+
+**Throws:**
+- `GroupFullException` - if adding the user would exceed maxSize
+
+---
+
+#### unjoinGroup
+
+```java
+void unjoinGroup(String authzGroupId)
+    throws GroupNotDefinedException, AuthzPermissionException, AuthzRealmLockException
+```
+
+Cause the current user to unjoin an AuthzGroup.
+
+<ParamField path="authzGroupId" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+---
+
+### Provider Integration
+
+#### getProviderIDsForRealms
+
+```java
+Map<String, List<String>> getProviderIDsForRealms(List<String> realmIDs)
+```
+
+Get all provider IDs for the given realms.
+
+<ParamField path="realmIDs" type="List<String>" required>
+  List of realm IDs
+</ParamField>
+
+<ResponseField name="Map<String, List<String>>" type="Map<String, List<String>>">
+  Map where key is realm ID and value is list of provider IDs
+</ResponseField>
+
+---
+
+#### getAuthzGroupIds
+
+```java
+Set<String> getAuthzGroupIds(String providerId)
+```
+
+Get AuthzGroup IDs with the given provider ID.
+
+<ParamField path="providerId" type="String" required>
+  The provider ID
+</ParamField>
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of AuthzGroup IDs (e.g., "/site/1234", "/site/1234/group/5678")
+</ResponseField>
+
+---
+
+#### getProviderIds
+
+```java
+Set<String> getProviderIds(String authzGroupId)
+```
+
+Get provider IDs associated with an AuthzGroup.
+
+<ParamField path="authzGroupId" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of external group IDs (non-compound IDs)
+</ResponseField>
+
+---
+
+### Utility Methods
+
+#### authzGroupReference
+
+```java
+String authzGroupReference(String id)
+```
+
+Get the internal reference for accessing an AuthzGroup.
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The internal reference
+</ResponseField>
+
+---
+
+#### refreshUser
+
+```java
+void refreshUser(String userId)
+```
+
+Refresh a user's AuthzGroup external definitions (from providers).
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+---
+
+#### getRoleName
+
+```java
+String getRoleName(String roleId)
+```
+
+Get a display name for a role.
+
+<ParamField path="roleId" type="String" required>
+  The role ID (e.g., ".auth", "Instructor")
+</ParamField>
+
+<ResponseField name="String" type="String">
+  Display name for the role
+</ResponseField>
+
+---
+
+#### getMaintainRoles
+
+```java
+Set<String> getMaintainRoles()
+```
+
+Get all maintain roles.
+
+<ResponseField name="Set<String>" type="Set<String>">
+  Set of role IDs with maintain permissions
+</ResponseField>
+
+---
+
+### Permission Check Methods
+
+#### allowUpdate
+
+```java
+boolean allowUpdate(String id)
+```
+
+Check if current user is allowed to update an AuthzGroup.
+
+<ParamField path="id" type="String" required>
+  The AuthzGroup ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowAdd
+
+```java
+boolean allowAdd(String id)
+```
+
+Check if current user is allowed to add an AuthzGroup.
+
+---
+
+#### allowRemove
+
+```java
+boolean allowRemove(String id)
+```
+
+Check if current user is allowed to remove an AuthzGroup.
+
+---
+
+#### allowJoinGroup
+
+```java
+boolean allowJoinGroup(String id)
+```
+
+Check if current user is allowed to join a group.
+
+---
+
+#### allowUnjoinGroup
+
+```java
+boolean allowUnjoinGroup(String id)
+```
+
+Check if current user is allowed to unjoin a group.
+
+---
+
+## AuthzGroup Object
+
+The `AuthzGroup` interface provides access to realm information:
+
+```java
+AuthzGroup realm = authzGroupService.getAuthzGroup("/site/biology-101");
+
+// Identity
+String id = realm.getId();
+String reference = realm.getReference();
+String providerGroupId = realm.getProviderGroupId();
+
+// Members
+Set<Member> members = realm.getMembers();
+Member member = realm.getMember(userId);
+Set<String> users = realm.getUsers();
+boolean hasRole = realm.hasRole(userId, roleId);
+int userCount = realm.getUsersHasRole(roleId).size();
+
+// Roles
+Set<Role> roles = realm.getRoles();
+Role role = realm.getRole(roleId);
+Role userRole = realm.getUserRole(userId);
+
+// Functions/Permissions
+boolean allowed = realm.isAllowed(userId, function);
+Set<String> allowedFunctions = realm.getAllowedFunctions(function, roleSets);
+```
+
+## Common Use Cases
+
+### Checking User Permissions
+
+```java
+// Check if current user can update a site
+String userId = sessionManager.getCurrentSessionUserId();
+String siteRef = "/site/" + siteId;
+
+if (authzGroupService.isAllowed(userId, "site.upd", siteRef)) {
+    // User can update site
+}
+
+// Check group-specific permission
+String groupRef = "/site/" + siteId + "/group/" + groupId;
+if (authzGroupService.isAllowed(userId, "content.read", groupRef)) {
+    // User can read group content
+}
+```
+
+### Getting All Users with a Permission
+
+```java
+// Get all users who can grade assignments in a site
+Set<String> graders = authzGroupService.getUsersIsAllowed(
+    "assignment.grade",
+    Collections.singleton("/site/biology-101")
+);
+
+// Load user details
+List<User> graderUsers = userDirectoryService.getUsers(graders);
+```
+
+### Managing Site Membership
+
+```java
+// Add a user to a site with a role
+AuthzGroup siteRealm = authzGroupService.getAuthzGroup("/site/biology-101");
+siteRealm.addMember(userId, "Student", true, false);
+authzGroupService.save(siteRealm);
+
+// Change a user's role
+siteRealm.removeMember(userId);
+siteRealm.addMember(userId, "Teaching Assistant", true, false);
+authzGroupService.save(siteRealm);
+
+// Remove a user from a site
+siteRealm.removeMember(userId);
+authzGroupService.save(siteRealm);
+```
+
+## See Also
+
+- [SiteService API](/api/kernel/site-service) - Site management with authorization
+- [UserDirectoryService API](/api/kernel/user-directory) - User information
+- [EntityManager API](/api/kernel/entity-manager) - Reference management

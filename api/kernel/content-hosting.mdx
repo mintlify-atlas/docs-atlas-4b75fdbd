@@ -1,0 +1,850 @@
+---
+title: ContentHostingService API
+description: File and resource management service for Sakai LMS based on WebDAV
+---
+
+The `ContentHostingService` is the interface for Sakai Content Hosting services. This service manages shared content resources and collections based on WebDAV terminology and capabilities.
+
+## Overview
+
+Package: `org.sakaiproject.content.api`
+
+The ContentHostingService provides:
+
+- File and resource storage and retrieval
+- Collection (folder) management
+- Access control and permissions
+- Resource properties and metadata
+- Attachment management
+- Quota management
+- File versioning support
+
+## Key Concepts
+
+- **Resource**: A file with content, MIME type, properties, and a resource ID (URI)
+- **Collection**: A folder containing resources and other collections
+- **Properties**: Name-value pairs (DAV: namespace for live properties, custom namespaces for dead properties)
+- **Reference**: Internal URI for accessing resources (e.g., `/content/group/site-id/folder/file.pdf`)
+
+## Constants
+
+<ParamField path="APPLICATION_ID" type="String" default="sakai:content">
+  Application identifier for the content service
+</ParamField>
+
+<ParamField path="REFERENCE_ROOT" type="String" default="/content">
+  Root path for content resource references
+</ParamField>
+
+<ParamField path="ATTACHMENTS_COLLECTION" type="String" default="/attachment/">
+  Collection ID for attachments
+</ParamField>
+
+<ParamField path="COLLECTION_USER" type="String" default="/user/">
+  Collection ID for user sites
+</ParamField>
+
+<ParamField path="COLLECTION_SITE" type="String" default="/group/">
+  Collection ID for non-user sites
+</ParamField>
+
+<ParamField path="COLLECTION_DROPBOX" type="String" default="/group-user/">
+  Root collection for dropboxes
+</ParamField>
+
+<ParamField path="MAXIMUM_RESOURCE_ID_LENGTH" type="int" default="247">
+  Maximum characters in a resource ID
+</ParamField>
+
+## Security Functions
+
+<ParamField path="AUTH_RESOURCE_ADD" type="String" default="content.new">
+  Permission to create a resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_READ" type="String" default="content.read">
+  Permission to read a resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_WRITE_ANY" type="String" default="content.revise.any">
+  Permission to write any resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_WRITE_OWN" type="String" default="content.revise.own">
+  Permission to write own resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_REMOVE_ANY" type="String" default="content.delete.any">
+  Permission to remove any resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_REMOVE_OWN" type="String" default="content.delete.own">
+  Permission to remove own resource
+</ParamField>
+
+<ParamField path="AUTH_RESOURCE_HIDDEN" type="String" default="content.hidden">
+  Permission to access hidden entities
+</ParamField>
+
+<ParamField path="AUTH_DROPBOX_OWN" type="String" default="dropbox.own">
+  Permission to own a dropbox
+</ParamField>
+
+<ParamField path="AUTH_DROPBOX_MAINTAIN" type="String" default="dropbox.maintain">
+  Permission to maintain dropboxes
+</ParamField>
+
+## Events
+
+<ParamField path="EVENT_RESOURCE_ADD" type="String" default="content.new">
+  Event when creating a resource
+</ParamField>
+
+<ParamField path="EVENT_RESOURCE_READ" type="String" default="content.read">
+  Event when reading a resource
+</ParamField>
+
+<ParamField path="EVENT_RESOURCE_WRITE" type="String" default="content.revise">
+  Event when writing a resource
+</ParamField>
+
+<ParamField path="EVENT_RESOURCE_REMOVE" type="String" default="content.delete">
+  Event when removing a resource
+</ParamField>
+
+<ParamField path="EVENT_RESOURCE_AVAILABLE" type="String" default="content.available">
+  Event when a resource becomes available
+</ParamField>
+
+## Collection Methods
+
+### Collection Access
+
+#### getCollection
+
+```java
+ContentCollection getCollection(String id) 
+    throws IdUnusedException, TypeException, PermissionException
+```
+
+Access a collection with this resource ID.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+<ResponseField name="ContentCollection" type="ContentCollection">
+  The ContentCollection object
+</ResponseField>
+
+**Throws:**
+- `IdUnusedException` - if the ID does not exist
+- `TypeException` - if the resource exists but is not a collection
+- `PermissionException` - if user lacks permissions
+
+**Example:**
+```java
+try {
+    ContentCollection collection = contentHostingService.getCollection("/group/site-id/folder/");
+    List<String> members = collection.getMembers();
+    for (String memberId : members) {
+        // Process each member
+    }
+} catch (IdUnusedException e) {
+    // Collection not found
+}
+```
+
+---
+
+#### checkCollection
+
+```java
+void checkCollection(String id) 
+    throws IdUnusedException, TypeException, PermissionException
+```
+
+Check access to a collection without retrieving it.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+**Throws:**
+- `IdUnusedException` - if the ID does not exist
+- `TypeException` - if not a collection
+- `PermissionException` - if user lacks permissions
+
+---
+
+#### getAllResources
+
+```java
+List<ContentResource> getAllResources(String id)
+```
+
+Access all ContentResource objects in this path and below.
+
+<ParamField path="id" type="String" required>
+  A collection ID (cannot be root collection)
+</ParamField>
+
+<ResponseField name="List<ContentResource>" type="List<ContentResource>">
+  List of all resources the user has access to
+</ResponseField>
+
+**Example:**
+```java
+List<ContentResource> resources = contentHostingService.getAllResources("/group/site-id/");
+for (ContentResource resource : resources) {
+    System.out.println(resource.getUrl() + " - " + resource.getContentLength() + " bytes");
+}
+```
+
+---
+
+#### getCollectionSize
+
+```java
+int getCollectionSize(String id) 
+    throws IdUnusedException, TypeException, PermissionException
+```
+
+Count the number of recursive children for a collection.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+<ResponseField name="int" type="int">
+  Number of internal members (recursive)
+</ResponseField>
+
+---
+
+### Collection Creation
+
+#### addCollection
+
+```java
+ContentCollectionEdit addCollection(String id) 
+    throws IdUsedException, IdInvalidException, PermissionException, InconsistentException
+```
+
+Create a new collection, locked for update. Must call `commitCollection()` or `cancelCollection()`.
+
+<ParamField path="id" type="String" required>
+  The ID of the collection (must end with '/')
+</ParamField>
+
+<ResponseField name="ContentCollectionEdit" type="ContentCollectionEdit">
+  A new editable ContentCollection object
+</ResponseField>
+
+**Throws:**
+- `IdUsedException` - if the ID is already in use
+- `IdInvalidException` - if the ID is invalid
+- `PermissionException` - if user lacks permission
+- `InconsistentException` - if containing collection does not exist
+
+**Example:**
+```java
+try {
+    ContentCollectionEdit collection = contentHostingService.addCollection("/group/site-id/new-folder/");
+    ResourcePropertiesEdit props = collection.getPropertiesEdit();
+    props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, "New Folder");
+    contentHostingService.commitCollection(collection);
+} catch (IdUsedException e) {
+    // Collection already exists
+}
+```
+
+---
+
+#### commitCollection
+
+```java
+void commitCollection(ContentCollectionEdit edit)
+```
+
+Commit changes to a ContentCollectionEdit and release the lock.
+
+<ParamField path="edit" type="ContentCollectionEdit" required>
+  The ContentCollectionEdit object to commit
+</ParamField>
+
+---
+
+#### cancelCollection
+
+```java
+void cancelCollection(ContentCollectionEdit edit)
+```
+
+Cancel changes to a ContentCollectionEdit and release the lock.
+
+<ParamField path="edit" type="ContentCollectionEdit" required>
+  The ContentCollectionEdit object to cancel
+</ParamField>
+
+---
+
+### Collection Modification
+
+#### editCollection
+
+```java
+ContentCollectionEdit editCollection(String id) 
+    throws IdUnusedException, TypeException, PermissionException, InUseException
+```
+
+Get a collection locked for update.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+<ResponseField name="ContentCollectionEdit" type="ContentCollectionEdit">
+  The collection locked for editing
+</ResponseField>
+
+**Throws:**
+- `IdUnusedException` - if not found
+- `TypeException` - if not a collection
+- `PermissionException` - if user lacks permission
+- `InUseException` - if locked by someone else
+
+---
+
+### Collection Removal
+
+#### removeCollection
+
+```java
+void removeCollection(String id) 
+    throws IdUnusedException, TypeException, PermissionException, 
+           InUseException, ServerOverloadException
+```
+
+Remove a collection and all its members.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+**Throws:**
+- `IdUnusedException` - if not found
+- `TypeException` - if not a collection
+- `PermissionException` - if user lacks permission
+- `InUseException` - if collection or member is locked
+- `ServerOverloadException` - if filesystem write fails
+
+---
+
+## Resource Methods
+
+### Resource Access
+
+#### getResource
+
+```java
+ContentResource getResource(String id) 
+    throws PermissionException, IdUnusedException, TypeException
+```
+
+Access a resource by ID.
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+<ResponseField name="ContentResource" type="ContentResource">
+  The ContentResource object
+</ResponseField>
+
+**Example:**
+```java
+try {
+    ContentResource resource = contentHostingService.getResource("/group/site-id/file.pdf");
+    
+    // Get metadata
+    String contentType = resource.getContentType();
+    long size = resource.getContentLength();
+    String url = resource.getUrl();
+    
+    // Get content
+    byte[] content = resource.getContent();
+    InputStream stream = resource.streamContent();
+    
+    // Get properties
+    ResourceProperties props = resource.getProperties();
+    String displayName = props.getProperty(ResourceProperties.PROP_DISPLAY_NAME);
+} catch (IdUnusedException e) {
+    // Resource not found
+}
+```
+
+---
+
+### Resource Creation
+
+#### addResource (Simple)
+
+```java
+ContentResourceEdit addResource(String id) 
+    throws PermissionException, IdUsedException, IdInvalidException, 
+           InconsistentException, ServerOverloadException
+```
+
+Create a new resource, locked for update. Must call `commitResource()` or `cancelResource()`.
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+<ResponseField name="ContentResourceEdit" type="ContentResourceEdit">
+  A new editable ContentResource object
+</ResponseField>
+
+**Example:**
+```java
+try {
+    ContentResourceEdit resource = contentHostingService.addResource("/group/site-id/document.pdf");
+    
+    // Set content type
+    resource.setContentType("application/pdf");
+    
+    // Set content
+    resource.setContent(fileBytes);
+    
+    // Set properties
+    ResourcePropertiesEdit props = resource.getPropertiesEdit();
+    props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, "Course Document");
+    props.addProperty(ResourceProperties.PROP_DESCRIPTION, "Important reading material");
+    
+    // Commit
+    contentHostingService.commitResource(resource);
+} catch (OverQuotaException e) {
+    // Would exceed quota
+}
+```
+
+---
+
+#### addResource (Complete)
+
+```java
+ContentResource addResource(String id, String type, InputStream content, 
+                            ResourceProperties properties, int priority)
+    throws PermissionException, IdUsedException, IdInvalidException, 
+           InconsistentException, OverQuotaException, ServerOverloadException
+```
+
+Create a new resource in one operation.
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+<ParamField path="type" type="String" required>
+  The MIME type (e.g., "application/pdf")
+</ParamField>
+
+<ParamField path="content" type="InputStream" required>
+  Stream containing the resource content
+</ParamField>
+
+<ParamField path="properties" type="ResourceProperties" required>
+  Properties to add to the resource
+</ParamField>
+
+<ParamField path="priority" type="int" required>
+  Notification priority for this commit
+</ParamField>
+
+---
+
+#### addResource (With Groups)
+
+```java
+ContentResource addResource(String id, String type, InputStream content,
+                            ResourceProperties properties, Collection groups, int priority)
+    throws PermissionException, IdUsedException, IdInvalidException,
+           InconsistentException, OverQuotaException, ServerOverloadException
+```
+
+Create a new resource with group access control.
+
+<ParamField path="groups" type="Collection<String>">
+  Collection of group reference strings for access control
+</ParamField>
+
+---
+
+### Resource Modification
+
+#### editResource
+
+```java
+ContentResourceEdit editResource(String id)
+    throws PermissionException, IdUnusedException, TypeException, InUseException
+```
+
+Get a resource locked for update.
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+<ResponseField name="ContentResourceEdit" type="ContentResourceEdit">
+  The resource locked for editing
+</ResponseField>
+
+**Example:**
+```java
+try {
+    ContentResourceEdit resource = contentHostingService.editResource(resourceId);
+    
+    // Update content
+    resource.setContent(newBytes);
+    
+    // Update properties
+    ResourcePropertiesEdit props = resource.getPropertiesEdit();
+    props.addProperty(ResourceProperties.PROP_MODIFIED_DATE, 
+                     TimeService.newTime().toString());
+    
+    contentHostingService.commitResource(resource);
+} catch (InUseException e) {
+    // Resource is being edited by someone else
+}
+```
+
+---
+
+#### commitResource
+
+```java
+void commitResource(ContentResourceEdit edit) 
+    throws OverQuotaException, ServerOverloadException
+```
+
+Commit changes to a ContentResourceEdit and release the lock.
+
+<ParamField path="edit" type="ContentResourceEdit" required>
+  The ContentResourceEdit object to commit
+</ParamField>
+
+**Throws:**
+- `OverQuotaException` - if this would exceed quota
+- `ServerOverloadException` - if filesystem write fails
+
+---
+
+#### cancelResource
+
+```java
+void cancelResource(ContentResourceEdit edit)
+```
+
+Cancel changes to a ContentResourceEdit and release the lock.
+
+<ParamField path="edit" type="ContentResourceEdit" required>
+  The ContentResourceEdit object to cancel
+</ParamField>
+
+---
+
+### Resource Removal
+
+#### removeResource
+
+```java
+void removeResource(String id)
+    throws PermissionException, IdUnusedException, TypeException, InUseException
+```
+
+Remove a resource.
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+**Throws:**
+- `PermissionException` - if user lacks permission
+- `IdUnusedException` - if not found
+- `TypeException` - if not a resource
+- `InUseException` - if locked by someone else
+
+---
+
+## Attachment Methods
+
+#### addAttachmentResource
+
+```java
+ContentResource addAttachmentResource(String name, String type, InputStream content,
+                                     ResourceProperties properties)
+    throws IdInvalidException, InconsistentException, IdUsedException,
+           PermissionException, OverQuotaException, ServerOverloadException
+```
+
+Create a new resource as an attachment with an auto-generated ID.
+
+<ParamField path="name" type="String" required>
+  The name of the resource (filename)
+</ParamField>
+
+<ParamField path="type" type="String" required>
+  The MIME type
+</ParamField>
+
+<ParamField path="content" type="InputStream" required>
+  Stream containing the content
+</ParamField>
+
+<ParamField path="properties" type="ResourceProperties" required>
+  Properties for the resource
+</ParamField>
+
+<ResponseField name="ContentResource" type="ContentResource">
+  The created attachment resource
+</ResponseField>
+
+**Example:**
+```java
+ResourcePropertiesEdit props = contentHostingService.newResourceProperties();
+props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, "attachment.pdf");
+
+ContentResource attachment = contentHostingService.addAttachmentResource(
+    "attachment.pdf",
+    "application/pdf",
+    fileInputStream,
+    props
+);
+
+String attachmentId = attachment.getId();
+```
+
+---
+
+#### isAttachmentResource
+
+```java
+boolean isAttachmentResource(String id)
+```
+
+Check if a resource ID references an entity in the attachments collection.
+
+<ParamField path="id" type="String" required>
+  The resource or collection ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if this is an attachment resource
+</ResponseField>
+
+---
+
+## UUID Methods
+
+#### getUuid
+
+```java
+String getUuid(String id)
+```
+
+For a given ID, return its UUID (creating it if it doesn't exist).
+
+<ParamField path="id" type="String" required>
+  The resource ID
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The UUID for this resource
+</ResponseField>
+
+---
+
+#### resolveUuid
+
+```java
+String resolveUuid(String uuid)
+```
+
+For a given UUID, lookup and return the corresponding ID.
+
+<ParamField path="uuid" type="String" required>
+  The UUID to resolve
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The resource ID, or null if not found
+</ResponseField>
+
+---
+
+## Permission Check Methods
+
+#### allowGetCollection
+
+```java
+boolean allowGetCollection(String id)
+```
+
+Check if user is allowed to get a collection.
+
+<ParamField path="id" type="String" required>
+  The collection ID
+</ParamField>
+
+<ResponseField name="boolean" type="boolean">
+  true if allowed, false otherwise
+</ResponseField>
+
+---
+
+#### allowAddCollection
+
+```java
+boolean allowAddCollection(String id)
+```
+
+Check if user is allowed to add a collection.
+
+---
+
+#### allowUpdateCollection
+
+```java
+boolean allowUpdateCollection(String id)
+```
+
+Check if user is allowed to update a collection.
+
+---
+
+#### allowRemoveCollection
+
+```java
+boolean allowRemoveCollection(String id)
+```
+
+Check if user is allowed to remove a collection.
+
+---
+
+#### allowAddResource
+
+```java
+boolean allowAddResource(String id)
+```
+
+Check if user is allowed to add a resource.
+
+---
+
+#### allowGetResource
+
+```java
+boolean allowGetResource(String id)
+```
+
+Check if user is allowed to get a resource.
+
+---
+
+#### allowUpdateResource
+
+```java
+boolean allowUpdateResource(String id)
+```
+
+Check if user is allowed to update a resource.
+
+---
+
+#### allowRemoveResource
+
+```java
+boolean allowRemoveResource(String id)
+```
+
+Check if user is allowed to remove a resource.
+
+---
+
+## ContentResource Object
+
+The `ContentResource` interface provides access to file content and metadata:
+
+```java
+ContentResource resource = contentHostingService.getResource(id);
+
+// Identity
+String id = resource.getId();
+String url = resource.getUrl();
+String reference = resource.getReference();
+
+// Content
+String contentType = resource.getContentType();
+long contentLength = resource.getContentLength();
+byte[] content = resource.getContent();
+InputStream stream = resource.streamContent();
+
+// Properties
+ResourceProperties props = resource.getProperties();
+String displayName = props.getProperty(ResourceProperties.PROP_DISPLAY_NAME);
+String description = props.getProperty(ResourceProperties.PROP_DESCRIPTION);
+String creator = props.getProperty(ResourceProperties.PROP_CREATOR);
+
+// Access Control
+Collection<String> groups = resource.getGroups();
+AccessMode access = resource.getAccess();
+boolean isHidden = resource.isHidden();
+Time releaseDate = resource.getReleaseDate();
+Time retractDate = resource.getRetractDate();
+```
+
+## ContentCollection Object
+
+The `ContentCollection` interface provides access to collection information:
+
+```java
+ContentCollection collection = contentHostingService.getCollection(id);
+
+// Members
+List<String> members = collection.getMembers();
+int memberCount = collection.getMemberCount();
+
+// Properties
+ResourceProperties props = collection.getProperties();
+String displayName = props.getProperty(ResourceProperties.PROP_DISPLAY_NAME);
+
+// Identity
+String id = collection.getId();
+String url = collection.getUrl();
+```
+
+## MIME Type Constants
+
+<ParamField path="HTML_MIMETYPE" type="String" default="text/html">
+  HTML MIME type
+</ParamField>
+
+<ParamField path="PDF_MIMETYPE" type="String" default="application/pdf">
+  PDF MIME type
+</ParamField>
+
+<ParamField path="DOC_MIMETYPE" type="String" default="application/msword">
+  Word document MIME type
+</ParamField>
+
+<ParamField path="DOCX_MIMETYPE" type="String" default="application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+  Word 2007+ document MIME type
+</ParamField>
+
+## See Also
+
+- [EntityManager API](/api/kernel/entity-manager) - Entity reference management
+- [SiteService API](/api/kernel/site-service) - Site context for resources
+- [AuthzGroupService API](/api/kernel/authz-service) - Resource permissions

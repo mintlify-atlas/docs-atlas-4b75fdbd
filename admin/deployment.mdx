@@ -1,0 +1,280 @@
+---
+title: Deployment Overview
+description: Learn how to deploy Sakai LMS using various methods including Docker and traditional Tomcat deployment
+---
+
+# Deployment Overview
+
+Sakai LMS can be deployed using multiple approaches depending on your infrastructure needs. This guide covers the primary deployment methods.
+
+## Deployment Methods
+
+Sakai supports two main deployment approaches:
+
+1. **Docker Deployment** - Containerized deployment for modern infrastructure
+2. **Traditional Tomcat Deployment** - Classic Java application server deployment
+
+## System Requirements
+
+### Minimum Requirements
+
+- **Java**: Java 17 (Java 11 for Sakai 22 and 23)
+- **Application Server**: Apache Tomcat 9
+- **Database**: MySQL 8.x, MariaDB 10.x, Oracle 12c+, or HSQLDB (development only)
+- **Memory**: Minimum 2GB RAM for Tomcat
+- **Disk Space**: 10GB+ for application and content storage
+
+<Warning>
+Do not use Tomcat installed via package managers (apt-get, yum). Download and extract Tomcat directly from Apache.
+</Warning>
+
+## Docker Deployment
+
+Docker deployment provides a containerized, reproducible environment for Sakai.
+
+### Building from Source
+
+<Steps>
+
+<Step title="Install Docker">
+
+On Linux, use Docker's installation script:
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+</Step>
+
+<Step title="Build Sakai Image">
+
+Navigate to the docker directory and build from source:
+
+```bash
+cd docker
+
+docker build --build-arg GIT_CACHEBUST=$(date +%s) \
+  --build-arg release=master -t sakai \
+  -f ./Dockerfile.source .
+```
+
+For a specific branch or tag:
+
+```bash
+docker build --build-arg GIT_CACHEBUST=$(date +%s) \
+  --build-arg repository=https://github.com/sakaiproject/sakai.git \
+  --build-arg release=25.1 -t sakai:25.1 \
+  -f ./Dockerfile.source .
+```
+
+</Step>
+
+<Step title="Start Database Container">
+
+Sakai requires a database. Start MariaDB using Docker:
+
+```bash
+docker run -p 127.0.0.1:53306:3306 -d --name="sakai-mariadb" \
+  -e "MARIADB_ROOT_PASSWORD=sakairoot" \
+  -v "./mysql/scripts:/docker-entrypoint-initdb.d" \
+  -d mariadb:10 --lower-case-table-names=1
+```
+
+This command:
+- Maps port 3306 to local port 53306
+- Sets root password
+- Loads initialization scripts from `mysql/scripts/`
+- Enables case-insensitive table names
+
+</Step>
+
+<Step title="Start Sakai Container">
+
+Run Sakai and link to the database:
+
+```bash
+docker run --rm -p 8080:8080 --name sakai-tomcat \
+  --link sakai-mariadb sakai
+```
+
+</Step>
+
+<Step title="Access Sakai">
+
+Open your browser and navigate to:
+
+```
+http://localhost:8080/portal
+```
+
+Default credentials:
+- **Username**: admin
+- **Password**: admin
+
+</Step>
+
+</Steps>
+
+## Traditional Tomcat Deployment
+
+For production environments, a traditional Tomcat deployment offers more control.
+
+### Prerequisites
+
+<Steps>
+
+<Step title="Install Java">
+
+Ensure Java 17 is installed:
+
+```bash
+java -version
+```
+
+Expected output should show Java 17.x.
+
+</Step>
+
+<Step title="Download Tomcat">
+
+Download Tomcat 9 from [Apache Tomcat](http://tomcat.apache.org):
+
+```bash
+wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.x/bin/apache-tomcat-9.0.x.tar.gz
+tar -xzf apache-tomcat-9.0.x.tar.gz
+mv apache-tomcat-9.0.x /opt/tomcat9
+```
+
+</Step>
+
+<Step title="Configure Tomcat Environment">
+
+Create `setenv.sh` in `/opt/tomcat9/bin/` with memory and JVM settings:
+
+```bash
+export UMASK='0022'
+
+CATALINA_OPTS="-server \
+               -Djava.awt.headless=true \
+               -XX:+UseCompressedOops \
+               -XX:+AlwaysPreTouch \
+               -XX:+DisableExplicitGC \
+               -Djava.net.preferIPv4Stack=true"
+
+# Memory size
+CATALINA_OPTS="$CATALINA_OPTS -Xms2g -Xmx2g"
+
+# Generational New size
+CATALINA_OPTS="$CATALINA_OPTS -XX:NewSize=500m -XX:MaxNewSize=500m"
+
+# Garbage Collector
+CATALINA_OPTS="$CATALINA_OPTS -XX:+UseG1GC"
+
+# Java Modules (required for Java 17)
+JAVA_OPTS="$JAVA_OPTS \
+    --add-opens=java.base/java.lang=ALL-UNNAMED \
+    --add-opens=java.base/java.util=ALL-UNNAMED \
+    --add-opens=java.base/java.time=ALL-UNNAMED"
+```
+
+Make it executable:
+
+```bash
+chmod +x /opt/tomcat9/bin/setenv.sh
+```
+
+</Step>
+
+<Step title="Build Sakai from Source">
+
+Clone and build Sakai:
+
+```bash
+git clone https://github.com/sakaiproject/sakai.git
+cd sakai
+mvn clean install
+```
+
+</Step>
+
+<Step title="Deploy to Tomcat">
+
+Deploy the built artifacts:
+
+```bash
+mvn clean install sakai:deploy -Dmaven.tomcat.home=/opt/tomcat9
+```
+
+</Step>
+
+<Step title="Start Tomcat">
+
+Start the Tomcat server:
+
+```bash
+cd /opt/tomcat9/bin
+./startup.sh && tail -f ../logs/catalina.out
+```
+
+Watch the logs for successful startup. Initial startup typically takes 30-60 seconds.
+
+</Step>
+
+</Steps>
+
+## Post-Deployment Configuration
+
+After deployment, configure Sakai through property files:
+
+- Database connection settings
+- Server URLs and DNS names
+- Email configuration
+- Security settings
+
+See [Configuration Guide](/admin/configuration) for detailed property configuration.
+
+## Deployment Checklist
+
+- [ ] Java 17 installed and configured
+- [ ] Tomcat 9 downloaded (not from package manager)
+- [ ] Database server running and accessible
+- [ ] Sakai database and user created
+- [ ] `sakai.properties` configured with database credentials
+- [ ] `setenv.sh` configured with appropriate memory settings
+- [ ] Firewall rules allow access to port 8080 (or configured port)
+- [ ] SSL/TLS certificate configured for production
+
+## Production Considerations
+
+<Warning>
+For production deployments:
+- Always use HTTPS with valid SSL certificates
+- Configure a reverse proxy (nginx, Apache) in front of Tomcat
+- Set up regular database backups
+- Configure external content storage for scalability
+- Monitor memory usage and adjust heap sizes accordingly
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure Sakai properties and settings
+  </Card>
+  <Card title="Database Setup" icon="database" href="/admin/database-setup">
+    Set up and configure your database
+  </Card>
+  <Card title="Security" icon="shield" href="/admin/security">
+    Secure your Sakai installation
+  </Card>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Manage users and permissions
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [Sakai Installation Guide](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17310646930/Sakai+21+Install+Guide+Source)
+- [Docker Documentation](https://docs.docker.com/)
+- [Apache Tomcat Documentation](https://tomcat.apache.org/tomcat-9.0-doc/index.html)

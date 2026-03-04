@@ -1,0 +1,360 @@
+---
+title: LTI Tool Integration
+description: Integrate external learning tools and applications using Learning Tools Interoperability standards
+---
+
+## Overview
+
+Learning Tools Interoperability (LTI) enables seamless integration of external applications and tools into Sakai. Launch third-party tools from within your course site, pass user and context information securely, and receive grades back from external applications—all while maintaining single sign-on and consistent user experience.
+
+## Key Features
+
+### LTI Standards Support
+
+Sakai implements current LTI specifications:
+
+- **LTI 1.1**: Legacy standard, widely supported
+- **LTI 1.3**: Modern standard with enhanced security
+- **LTI Advantage**: Extensions for deep integration
+  - Assignment and Grade Services (AGS): Grade passback
+  - Names and Role Provisioning Services (NRPS): Roster sync
+  - Deep Linking: Content selection and embedding
+
+<Note>
+  LTI 1.3 is the recommended standard for new tool integrations, offering improved security through OAuth 2.0 and signed JWTs.
+</Note>
+
+### Tool Types
+
+Different integration patterns:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| External Tool | Third-party application launched from site | Online textbooks, simulations, specialized software |
+| Content Item | Embeddable content from external source | Videos, interactive activities, documents |
+| Assessment Integration | External quiz/test with grade return | Publisher test banks, adaptive assessments |
+| Collaboration Tool | External communication platform | Virtual whiteboards, video conferencing |
+
+### Adding LTI Tools
+
+Integrate external tools into your site:
+
+<Steps>
+  <Step title="Access External Tools">
+    Navigate to External Tools in Site Setup or course administration
+  </Step>
+  <Step title="Add New Tool">
+    Click "Install LTI Tool" and enter tool configuration details
+  </Step>
+  <Step title="Configure Settings">
+    Provide tool URL, consumer key, secret, and launch parameters
+  </Step>
+  <Step title="Set Options">
+    Enable grade passback, roster sharing, and other integration features
+  </Step>
+  <Step title="Add to Site">
+    Place tool in site navigation or embed in pages
+  </Step>
+  <Step title="Test Launch">
+    Launch tool to verify configuration and access
+  </Step>
+</Steps>
+
+### System-wide vs. Site Tools
+
+Two levels of tool installation:
+
+- **System-wide tools**: Pre-configured by administrators, available to all sites
+- **Site-level tools**: Configured by instructors for specific courses
+- **Institutional agreements**: Centrally managed vendor relationships
+- **Ad-hoc integration**: Individual instructor tool additions
+
+<Tip>
+  Check with your institution's Sakai administrator for already-configured system-wide LTI tools before setting up site-specific integrations.
+</Tip>
+
+### Tool Configuration
+
+Key settings when adding LTI tools:
+
+- **Launch URL**: Tool's LTI endpoint address
+- **Consumer key**: Identifier for your Sakai instance
+- **Shared secret**: Security credential for signed launches
+- **Custom parameters**: Tool-specific configuration values
+- **Privacy settings**: What user information to share
+- **Frame height**: Display size for embedded tools
+- **Open in new window**: Launch behavior preference
+
+### User Information Sharing
+
+Control what data is passed to external tools:
+
+- **User ID**: Sakai user identifier
+- **Username**: Login name
+- **Full name**: First and last name
+- **Email address**: User's email
+- **Role**: Instructor, student, TA, etc.
+- **Course context**: Site ID and title
+- **Roster**: Complete participant list (with NRPS)
+
+<Note>
+  Privacy settings control which user information is shared with external tools. Only share necessary data based on tool requirements and institutional policies.
+</Note>
+
+### Grade Passback
+
+Automatic grade synchronization from external tools:
+
+- **Outcomes service**: LTI standard for grade return
+- **Gradebook creation**: Automatic grade item creation
+- **Score sync**: Real-time or periodic grade updates
+- **Point conversion**: Map external scores to Gradebook points
+- **Grade status**: Track submitted, graded, needs grading
+- **Manual override**: Adjust externally-provided grades if needed
+
+<Steps>
+  <Step title="Enable Grade Passback">
+    Configure LTI tool with grade passback enabled
+  </Step>
+  <Step title="Set Point Value">
+    Specify maximum points for the grade item
+  </Step>
+  <Step title="Students Complete Work">
+    Students launch tool and complete activities
+  </Step>
+  <Step title="Tool Returns Grades">
+    External tool sends scores back to Sakai
+  </Step>
+  <Step title="Grades Appear in Gradebook">
+    Scores automatically populate Gradebook grade item
+  </Step>
+</Steps>
+
+### Deep Linking
+
+Embed specific external content:
+
+- **Content selection**: Choose specific items from external tool
+- **Lesson integration**: Embed content in Lesson Builder pages
+- **Assignment linking**: Connect assignments to external activities
+- **Resource library**: Browse external content repositories
+- **Metadata transfer**: Content title, description, points
+
+<Tip>
+  Deep Linking (LTI Content Item) allows you to select specific resources from an external tool rather than launching the entire application.
+</Tip>
+
+### Single Sign-On
+
+Seamless authentication:
+
+- **No separate login**: Users automatically authenticated to external tools
+- **Session management**: Maintains authentication across tools
+- **Security**: Signed launches verify user identity
+- **Token-based**: OAuth tokens for secure communication
+- **Context preservation**: User returns to same location after tool use
+
+### Tool Placement Options
+
+Where LTI tools can appear:
+
+- **Site navigation**: Tool as menu item in course site
+- **Lesson Builder**: Embedded within lesson pages
+- **Assignments**: External tool assignment type
+- **Resources**: Link to tool from Resources folder
+- **Rich text editor**: Launch tool from editor toolbar
+- **Popup window**: Open in separate browser window
+
+### Roster Provisioning
+
+Share course participant information:
+
+- **Names and Role Provisioning Service (NRPS)**: Standard roster API
+- **Participant list**: All enrolled users with roles
+- **Membership updates**: Sync roster changes automatically
+- **Group information**: Share course group/section data
+- **Privacy controls**: Limit what roster data is shared
+
+### Custom Parameters
+
+Pass additional information to tools:
+
+- **Variable substitution**: Insert Sakai data into parameters
+- **User variables**: $User.id, $User.username, $User.email
+- **Context variables**: $CourseOffering.id, $CourseOffering.title
+- **Custom values**: Tool-specific configuration options
+- **Launch customization**: Modify tool behavior per site
+
+<Note>
+  Custom parameters allow fine-tuning tool behavior and passing context-specific information for personalized experiences.
+</Note>
+
+### Tool Management
+
+Administer LTI tool integrations:
+
+- **Edit configuration**: Update tool settings after installation
+- **Test launches**: Verify tool connectivity and configuration
+- **Usage analytics**: Track tool launch frequency and users
+- **Remove tools**: Uninstall unused integrations
+- **Debug mode**: Troubleshoot integration issues
+- **Log review**: Examine launch parameters and responses
+
+### Security Features
+
+Protect user data and maintain integrity:
+
+- **OAuth signatures**: Cryptographically signed launches
+- **Nonce validation**: Prevent replay attacks
+- **Timestamp checking**: Reject old launch requests
+- **SSL/TLS encryption**: Secure data transmission
+- **Key rotation**: Update security credentials periodically
+- **Privacy controls**: Limit data sharing to necessary information
+
+## Best Practices
+
+### Tool Selection
+
+- Verify LTI compliance before committing to external tools
+- Prefer LTI 1.3 tools for better security and features
+- Test tools thoroughly before deploying to students
+- Consider institutional licensing and support agreements
+- Review privacy policies of external tool providers
+- Ensure accessibility compliance of external tools
+
+### Configuration
+
+- Use system-wide tools when available for easier management
+- Document custom parameters and configuration choices
+- Test grade passback before relying on it for course grades
+- Configure appropriate privacy settings based on tool needs
+- Use descriptive tool names that indicate purpose
+- Set reasonable frame heights for embedded tools
+
+### Privacy and Security
+
+- Share only necessary user information with external tools
+- Review data sharing agreements with tool providers
+- Inform students about external tool usage and data sharing
+- Use institutional tools with vetted security practices
+- Regularly review and remove unused tool integrations
+- Keep consumer keys and secrets secure
+
+### Grade Integration
+
+- Test grade passback with sample data before live use
+- Verify point conversions are accurate
+- Monitor gradebook for successfully synced grades
+- Have backup plan if grade passback fails
+- Communicate grading timeline to students
+- Review externally-provided grades for accuracy
+
+<Tip>
+  Always test LTI tool launches and grade passback with a test student account before making tools available to your entire class.
+</Tip>
+
+### User Experience
+
+- Provide clear instructions for accessing external tools
+- Set expectations about tool launch delays
+- Inform students if tools open in new windows
+- Offer technical support resources for tool issues
+- Create orientation materials for complex tool integrations
+- Test on multiple browsers and devices
+
+### Troubleshooting
+
+- Check launch logs for detailed error information
+- Verify consumer key and secret are correct
+- Confirm tool URL is accessible and correct
+- Test with different user roles (instructor, student)
+- Check privacy settings if user data not appearing in tool
+- Contact tool provider support for tool-specific issues
+
+## Common Use Cases
+
+### Publisher Courseware
+
+Integrate textbook publisher platforms:
+- Access online textbook content
+- Complete publisher-created assignments
+- Automatic grade passback for publisher assessments
+- Supplemental resources and study aids
+- Learning analytics from publisher platform
+
+### Video Platforms
+
+Embed interactive video services:
+- Launch video hosting platforms (Kaltura, YuJa, Panopto)
+- Single sign-on to video libraries
+- Track video viewing analytics
+- Create and share lecture recordings
+- Interactive video quizzes
+
+### Specialized Software
+
+Access discipline-specific tools:
+- Programming environments (Codio, Replit)
+- Virtual labs and simulations
+- Statistical software packages
+- Design and modeling tools
+- Industry-standard applications
+
+### Assessment Engines
+
+External testing and quiz tools:
+- Adaptive assessment platforms
+- Question bank integration
+- Proctoring service integration
+- Specialized question types
+- Advanced analytics and reporting
+
+### Collaboration Tools
+
+Integrate communication platforms:
+- Virtual whiteboard applications
+- Collaborative document editing
+- Project management tools
+- Peer review platforms
+- Group work coordination tools
+
+<Note>
+  Many collaboration tools like Zoom, Microsoft Teams, and Google Meet can be integrated via LTI for seamless single sign-on and attendance tracking.
+</Note>
+
+## Technical Details
+
+LTI integration in Sakai is implemented via:
+
+- **LTI Service**: `LTIService` interface (lti/lti-api/src/java/org/sakaiproject/lti/api/LTIService.java)
+- **OAuth 1.0**: Signature-based authentication for LTI 1.1
+- **OAuth 2.0 & JWT**: Token-based authentication for LTI 1.3
+- **Basic LTI**: Industry-standard IMS Global specification
+- **Outcomes Service**: Grade passback via IMS LTI Outcomes
+- **Deep Linking**: Content selection via LTI Content Item
+- **Platform Support**: Sakai acts as LTI Platform (consumer)
+
+### LTI Advantage Services
+
+- **AGS (Assignment and Grade Services)**: Enhanced grade passback with line items
+- **NRPS (Names and Role Provisioning)**: Roster and membership services
+- **DL (Deep Linking)**: Advanced content selection and configuration
+
+<Tip>
+  For detailed technical documentation on LTI implementation, refer to IMS Global Learning Consortium specifications at https://www.imsglobal.org/activity/learning-tools-interoperability
+</Tip>
+
+## Administrative Configuration
+
+System administrators can:
+
+- Configure system-wide LTI tools available to all sites
+- Set institutional privacy and data sharing policies
+- Manage consumer keys and secrets for vendor relationships
+- Enable/disable site-level LTI tool installation
+- Configure LTI launch debugging and logging
+- Set default privacy and security settings
+
+<Note>
+  Contact your Sakai system administrator to request installation of institution-wide LTI tools or for assistance with tool configuration issues.
+</Note>

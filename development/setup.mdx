@@ -1,0 +1,218 @@
+---
+title: Development Environment Setup
+description: Set up your local development environment for Sakai LMS development
+---
+
+## Prerequisites
+
+### Required Software
+
+<Steps>
+  <Step title="Install Java 17">
+    Sakai requires Java 17 for the current trunk development (Java 11 was used for Sakai 22 and 23).
+
+    ```bash
+    # Verify Java version
+    java -version
+    ```
+
+    You should see Java 17 or higher.
+  </Step>
+
+  <Step title="Install Apache Maven">
+    Maven is used to build Sakai from source. You can either install Maven system-wide or use the included Maven wrapper (`./mvnw`).
+
+    ```bash
+    # Verify Maven installation (optional)
+    mvn -version
+    ```
+  </Step>
+
+  <Step title="Install Apache Tomcat 9">
+    Download and extract Apache Tomcat 9 from [http://tomcat.apache.org](http://tomcat.apache.org).
+
+    <Warning>
+      Do **not** install Tomcat via package managers (apt-get, yum, etc.). Sakai requires a manual Tomcat installation.
+    </Warning>
+
+    ```bash
+    # Example extraction
+    tar -xzf apache-tomcat-9.x.x.tar.gz
+    export TOMCAT_HOME=/path/to/apache-tomcat-9.x.x
+    ```
+  </Step>
+
+  <Step title="Configure Tomcat">
+    You must configure Tomcat according to the Sakai installation guide:
+    
+    [Sakai 21 Install Guide - Source](https://sakaiproject.atlassian.net/wiki/spaces/DOC/pages/17310646930/Sakai+21+Install+Guide+Source)
+
+    This includes setting up memory parameters, library paths, and Sakai configuration directories.
+  </Step>
+</Steps>
+
+## Clone the Repository
+
+### Fork and Clone
+
+<Steps>
+  <Step title="Fork the Sakai repository">
+    Fork the [Sakai repository](https://github.com/sakaiproject/sakai) to your GitHub account.
+  </Step>
+
+  <Step title="Clone your fork">
+    ```bash
+    git clone https://github.com/YOUR_GITHUB_USERNAME/sakai.git
+    cd sakai
+    ```
+  </Step>
+
+  <Step title="Add upstream remote">
+    ```bash
+    git remote add upstream https://github.com/sakaiproject/sakai.git
+    ```
+  </Step>
+
+  <Step title="Keep your fork updated">
+    ```bash
+    git checkout master
+    git pull upstream master
+    git push origin master
+    ```
+  </Step>
+</Steps>
+
+## Database Setup
+
+Sakai supports multiple databases for development:
+
+<CodeGroup>
+```bash MySQL/MariaDB
+# Install MySQL or MariaDB
+# Create database and user
+mysql -u root -p
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4;
+GRANT ALL ON sakai.* TO 'sakaiuser'@'localhost' IDENTIFIED BY 'sakaipassword';
+```
+
+```bash HSQLDB (Development)
+# HSQLDB is embedded and requires no setup
+# Suitable for development only, not production
+```
+
+```bash PostgreSQL
+# Install PostgreSQL
+# Create database and user
+psql -U postgres
+CREATE DATABASE sakai;
+CREATE USER sakaiuser WITH PASSWORD 'sakaipassword';
+GRANT ALL PRIVILEGES ON DATABASE sakai TO sakaiuser;
+```
+</CodeGroup>
+
+## IDE Setup
+
+### IntelliJ IDEA
+
+<Steps>
+  <Step title="Import as Maven project">
+    Open IntelliJ IDEA and select **File > Open**, then choose the Sakai root directory.
+  </Step>
+
+  <Step title="Configure Project SDK">
+    Ensure the Project SDK is set to Java 17:
+    - **File > Project Structure > Project > SDK**
+  </Step>
+
+  <Step title="Enable annotation processing">
+    - **File > Settings > Build, Execution, Deployment > Compiler > Annotation Processors**
+    - Check "Enable annotation processing"
+  </Step>
+</Steps>
+
+### Eclipse
+
+<Steps>
+  <Step title="Import as Maven project">
+    - **File > Import > Maven > Existing Maven Projects**
+    - Select the Sakai root directory
+  </Step>
+
+  <Step title="Configure Java version">
+    Ensure Eclipse is using Java 17 for the project.
+  </Step>
+</Steps>
+
+### VS Code
+
+<Steps>
+  <Step title="Install Java extensions">
+    Install the following extensions:
+    - Extension Pack for Java
+    - Spring Boot Extension Pack
+    - Maven for Java
+  </Step>
+
+  <Step title="Open workspace">
+    Open the Sakai root directory in VS Code.
+  </Step>
+</Steps>
+
+## Frontend Development Setup
+
+For working with Sakai's web components:
+
+<Steps>
+  <Step title="Install Node.js">
+    Install Node.js 18 or higher from [nodejs.org](https://nodejs.org).
+  </Step>
+
+  <Step title="Navigate to frontend directory">
+    ```bash
+    cd webcomponents/tool/src/main/frontend
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Run linting">
+    ```bash
+    npm run lint
+    ```
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Test your development environment:
+
+```bash
+# Build Sakai (this will take several minutes)
+mvn clean install
+
+# Or use the Maven wrapper
+./mvnw clean install
+```
+
+If the build completes successfully, your development environment is ready.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Building Sakai" icon="hammer" href="./building">
+    Learn how to build and deploy Sakai to Tomcat
+  </Card>
+  <Card title="Tool Development" icon="wrench" href="./tool-development">
+    Start developing Sakai tools and modules
+  </Card>
+  <Card title="Web Components" icon="code" href="./web-components">
+    Build modern UI components with Lit
+  </Card>
+  <Card title="Contributing" icon="code-branch" href="./contributing">
+    Understand the contribution workflow
+  </Card>
+</CardGroup>

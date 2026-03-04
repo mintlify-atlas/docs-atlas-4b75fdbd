@@ -1,0 +1,482 @@
+---
+title: Configuration Guide
+description: Comprehensive guide to configuring Sakai LMS properties, paths, and system settings
+---
+
+# Configuration Guide
+
+Sakai uses a hierarchical property file system for configuration. Understanding this system is crucial for proper deployment and customization.
+
+## Configuration File Hierarchy
+
+Sakai loads properties in the following order (later files override earlier ones):
+
+1. `kernel.properties` - Kernel defaults (bundled in source)
+2. `default.sakai.properties` - Default Sakai properties (bundled in source)
+3. `sakai.properties` - Your main configuration file
+4. `local.properties` - Local overrides (optional)
+5. `security.properties` - Security-specific settings (optional)
+
+### Configuration File Locations
+
+All local property files are read from `${sakai.home}`, which defaults to:
+
+```
+$CATALINA_HOME/sakai/
+```
+
+<Info>
+The recommended practice is to leave bundled properties unchanged and override settings in `sakai.properties` or `local.properties`.
+</Info>
+
+## Essential Configuration Settings
+
+### Server Identification
+
+```properties
+# Unique server identifier (required for clustering)
+serverId=SAKAI1
+
+# DNS name of the server
+serverName=sakai.example.edu
+
+# Server aliases (comma-separated)
+serverNameAliases=www.sakai.example.edu,lms.example.edu
+
+# Full server URL including protocol and port
+serverUrl=https://sakai.example.edu
+```
+
+### Institutional Branding
+
+```properties
+# Institution name
+ui.institution=Your University Name
+
+# Service name
+ui.service=Learning Management System
+
+# Copyright text
+bottom.copyrighttext=Copyright 2003-currentYearFromServer Your University. All rights reserved.
+```
+
+### Path Configuration
+
+```properties
+# Portal path (default: /portal)
+portalPath=/portal
+
+# File access path (default: /access)
+accessPath=/access
+
+# Help system path (default: /help)
+helpPath=/help
+
+# Tool handler path (default: /portal/tool)
+toolPath=/portal/tool
+```
+
+## Database Configuration
+
+Configure your database connection based on your database vendor.
+
+### MariaDB Configuration
+
+```properties
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+url@javax.sql.BaseDataSource=jdbc:mariadb://127.0.0.1:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+validationQuery@javax.sql.BaseDataSource=
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=YOUR_PASSWORD_HERE
+```
+
+<Warning>
+Never use default passwords in production! Always set a strong password for your database user.
+</Warning>
+
+### MySQL 8 Configuration
+
+```properties
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=com.mysql.jdbc.Driver
+hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+url@javax.sql.BaseDataSource=jdbc:mysql://127.0.0.1:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+validationQuery@javax.sql.BaseDataSource=
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=YOUR_PASSWORD_HERE
+```
+
+### Oracle Configuration
+
+```properties
+vendor@org.sakaiproject.db.api.SqlService=oracle
+driverClassName@javax.sql.BaseDataSource=oracle.jdbc.OracleDriver
+hibernate.dialect=org.hibernate.dialect.Oracle10gDialect
+url@javax.sql.BaseDataSource=jdbc:oracle:thin:@your.oracle.dns:1521:SID
+validationQuery@javax.sql.BaseDataSource=select 1 from DUAL
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+testOnBorrow@javax.sql.BaseDataSource=false
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=YOUR_PASSWORD_HERE
+```
+
+### Hibernate Settings
+
+```properties
+# Auto-create database schema on startup
+auto.ddl=true
+
+# Show SQL statements in logs (disable in production)
+hibernate.show_sql=false
+
+# Generate hibernate statistics (disable in production)
+hibernate.generate_statistics=false
+```
+
+<Warning>
+Set `auto.ddl=false` in production after initial setup to prevent schema modifications on restart.
+</Warning>
+
+## Content Storage Configuration
+
+Sakai can store file content in the database or on the filesystem.
+
+### Database Storage (Default)
+
+By default, files are stored as BLOBs in the database. No additional configuration needed.
+
+### Filesystem Storage
+
+```properties
+# Root path for filesystem content storage
+bodyPath@org.sakaiproject.content.api.ContentHostingService=/var/sakai/content/
+
+# Optional: Distribute files across multiple volumes
+bodyVolumes@org.sakaiproject.content.api.ContentHostingService=vol1,vol2,vol3
+
+# Enable storage for deleted files
+bodyPathDeleted@org.sakaiproject.content.api.ContentHostingService=/var/sakai/deleted/
+```
+
+### Archive Storage
+
+```properties
+# Archive file storage location
+archive.storage.path=${sakai.home}/archive/
+
+# Maximum time for archive jobs (milliseconds)
+archive.max.job.time=1800000
+```
+
+## Email Configuration
+
+### SMTP Settings
+
+```properties
+# Enable SMTP service
+smtp.enabled=true
+
+# SMTP port for incoming mail
+smtp.port=8025
+
+# DNS servers for email
+smtp.dns.1=8.8.8.8
+smtp.dns.2=8.8.4.4
+
+# Outgoing mail server
+smtp@org.sakaiproject.email.api.EmailService=smtp.example.edu
+
+# SMTP authentication
+smtp.user=sakai@example.edu
+smtp.password=YOUR_SMTP_PASSWORD
+```
+
+### Email Service Settings
+
+```properties
+# Mail sender address
+mail.support=support@example.edu
+
+# Enable email notifications
+email.notifications.enabled=true
+
+# Test mode (emails logged but not sent)
+testMode@org.sakaiproject.email.api.EmailService=false
+```
+
+## Login and Authentication
+
+### Basic Login Settings
+
+```properties
+# Show login form on gateway page
+top.login=true
+
+# Use container-based authentication (SSO)
+container.login=false
+
+# Enable extra login for guests
+xlogin.enabled=false
+
+# Allow HTTP basic authentication
+allow.basic.auth.login=false
+
+# Log failed login attempts
+login.log-failed=true
+```
+
+### Password Reset Configuration
+
+```properties
+# URL for password reset tool
+login.password.reset.url=https://sakai.example.edu/portal/site/!gateway/page/password-reset
+```
+
+## Portal Configuration
+
+### Gateway Site
+
+```properties
+# Gateway site for anonymous users
+gatewaySiteId=!gateway
+
+# Multiple gateway sites (comma-separated)
+gatewaySiteList=!gateway,!public
+```
+
+### Portal Features
+
+```properties
+# Enable site tutorial for new users
+portal.use.tutorial=true
+
+# Maximum recent sites to display
+portal.max.recent.sites=5
+
+# Place new pinned sites at top
+portal.new.pinned.sites.top=true
+
+# Enable logout confirmation
+portal.logout.confirmation=true
+
+# Display current user role
+portal.display.current.role=true
+
+# Enable theme switcher (light/dark mode)
+portal.themes.switcher=true
+```
+
+### Cookie Configuration
+
+```properties
+# Cookie name
+cookieName=SAKAIID
+
+# Cookie domain
+cookieDomain=.example.edu
+
+# Enable cookie policy warning
+portal.cookie.policy.warning.enabled=true
+portal.cookie.policy.warning.url=/library/content/cookie_policy.html
+```
+
+## Security Configuration
+
+### HTTPS Configuration
+
+```properties
+# Force HTTPS URLs (set to port number)
+force.url.secure=443
+```
+
+<Info>
+For SSL/TLS termination at a load balancer, configure Tomcat's RemoteIpValve instead of using `force.url.secure`.
+</Info>
+
+### Content Security
+
+```properties
+# Force HTML file downloads (prevent XSS)
+content.html.forcedownload=true
+
+# Use high security content filtering
+content.cleaner.default.low.security=false
+
+# Content cleaner error handling
+# Options: none, logged, notify, display
+content.cleaner.errors.handling=notify
+```
+
+### User Account Security
+
+```properties
+# Enable reCAPTCHA for registration
+user.recaptcha.enabled=true
+user.recaptcha.public-key=YOUR_PUBLIC_KEY
+user.recaptcha.private-key=YOUR_PRIVATE_KEY
+
+# Limit account creation types
+user.registrationTypes=registered
+user.nonAdminTypes=guest
+
+# Allow duplicate email addresses
+user.email.allowduplicates=false
+```
+
+## Performance Tuning
+
+### Caching Configuration
+
+```properties
+# Tables to cache (colon-separated, starts with :)
+DbFlatPropertiesCache=:all:
+
+# Enable active user tracking
+display.users.present=true
+```
+
+### Event Monitoring
+
+```properties
+# Check and warn about event table size
+events.size.check=true
+```
+
+## Advanced Configuration
+
+### Logging Configuration
+
+```properties
+# Configure logging levels
+log.config.count=2
+log.config.1=DEBUG.org.sakaiproject.content
+log.config.2=INFO.org.hibernate.SQL
+```
+
+### Internationalization
+
+```properties
+# Load bundles from database
+load.bundles.from.db=true
+
+# Bundle cache timeout (milliseconds)
+load.bundles.from.db.timeout=30000
+```
+
+### Web Services
+
+```properties
+# Enable web services login
+webservices.allowlogin=true
+
+# IP addresses allowed to access web services
+webservices.allow=127.0.0.1,10.0.0.0/8
+```
+
+## Example sakai.properties File
+
+Here's a complete example for a production environment:
+
+```properties
+# Server Identification
+serverId=PROD-SAKAI-01
+serverName=sakai.university.edu
+serverUrl=https://sakai.university.edu
+
+# Institutional Settings
+ui.institution=University Name
+ui.service=Learning Management System
+
+# Database Configuration
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+url@javax.sql.BaseDataSource=jdbc:mariadb://db.internal:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+username@javax.sql.BaseDataSource=sakai_prod
+password@javax.sql.BaseDataSource=STRONG_PASSWORD_HERE
+
+# Database Settings
+auto.ddl=false
+hibernate.show_sql=false
+hibernate.generate_statistics=false
+
+# Content Storage
+bodyPath@org.sakaiproject.content.api.ContentHostingService=/var/sakai/content/
+bodyPathDeleted@org.sakaiproject.content.api.ContentHostingService=/var/sakai/deleted/
+
+# Email Configuration
+smtp.enabled=true
+smtp@org.sakaiproject.email.api.EmailService=smtp.university.edu
+mail.support=sakai-support@university.edu
+testMode@org.sakaiproject.email.api.EmailService=false
+
+# Security
+force.url.secure=443
+content.html.forcedownload=true
+user.email.allowduplicates=false
+login.log-failed=true
+
+# Portal Configuration
+portal.use.tutorial=true
+portal.logout.confirmation=true
+cookieName=SAKAIID
+cookieDomain=.university.edu
+```
+
+## Configuration Validation
+
+After modifying configuration files:
+
+<Steps>
+
+<Step title="Validate Syntax">
+Ensure property file syntax is correct (no invalid characters or line breaks).
+</Step>
+
+<Step title="Restart Tomcat">
+Changes require a Tomcat restart to take effect:
+
+```bash
+/opt/tomcat9/bin/shutdown.sh
+/opt/tomcat9/bin/startup.sh
+```
+</Step>
+
+<Step title="Check Logs">
+Monitor `catalina.out` for configuration errors:
+
+```bash
+tail -f /opt/tomcat9/logs/catalina.out
+```
+</Step>
+
+<Step title="Verify Settings">
+Log in as admin and verify settings in the Administration Workspace.
+</Step>
+
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Setup" icon="database" href="/admin/database-setup">
+    Configure and optimize your database
+  </Card>
+  <Card title="Security" icon="shield" href="/admin/security">
+    Implement security best practices
+  </Card>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Set up user accounts and roles
+  </Card>
+  <Card title="Site Administration" icon="sitemap" href="/admin/site-administration">
+    Manage sites and workspaces
+  </Card>
+</CardGroup>

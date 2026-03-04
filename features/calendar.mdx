@@ -1,0 +1,279 @@
+---
+title: Calendar
+description: Schedule and track important dates, deadlines, and events with an integrated calendar system
+---
+
+## Overview
+
+The Calendar tool provides a centralized scheduling system that displays important dates, deadlines, and events. It automatically aggregates deadlines from assignments and assessments while allowing instructors to add custom events, creating a comprehensive timeline of course activities.
+
+## Key Features
+
+### Calendar Views
+
+Multiple view options for different needs:
+
+- **Day view**: Detailed hourly schedule for a single day
+- **Week view**: Seven-day overview with time slots
+- **Month view**: Traditional calendar grid showing entire month
+- **List view**: Chronological list of upcoming events
+- **Agenda view**: Text-based upcoming events summary
+
+<Tip>
+  Switch between views using the toolbar buttons. Use Month view for long-term planning and Day view for detailed daily schedules.
+</Tip>
+
+### Event Types
+
+The calendar displays various event types:
+
+| Event Type | Source | Description |
+|------------|--------|-------------|
+| Activity | Manual | Instructor-created events like office hours or review sessions |
+| Assignment | Assignments Tool | Due dates for assignments |
+| Assessment | Tests & Quizzes | Test and quiz due dates |
+| Deadline | Various Tools | Other tool-generated deadlines |
+| Class Session | Manual | Regular class meeting times |
+| Exam | Manual | Midterm and final exam dates |
+| Web Content | External | iCal subscriptions from external calendars |
+
+### Creating Events
+
+Add custom events to the calendar:
+
+<Steps>
+  <Step title="Access Calendar">
+    Open the Calendar tool from your site navigation
+  </Step>
+  <Step title="Select Add Event">
+    Click "Add Event" button or click on a specific date/time
+  </Step>
+  <Step title="Enter Event Details">
+    Provide title, date, time range, location, and description
+  </Step>
+  <Step title="Set Event Type">
+    Choose appropriate category (activity, class session, exam, etc.)
+  </Step>
+  <Step title="Configure Options">
+    Set frequency for recurring events and attach relevant files
+  </Step>
+  <Step title="Save Event">
+    Publish event to calendar for all site participants to see
+  </Step>
+</Steps>
+
+### Event Properties
+
+Detailed options when creating events:
+
+- **Title**: Short descriptive name for the event
+- **Date and time range**: When the event occurs (calendar/calendar-api/api/src/java/org/sakaiproject/calendar/api/CalendarEvent.java:42)
+- **Location**: Physical or virtual location information (calendar/calendar-api/api/src/java/org/sakaiproject/calendar/api/CalendarEvent.java:72)
+- **Description**: Detailed information about the event
+- **Event type**: Classification for color coding and filtering
+- **Frequency**: One-time, daily, weekly, monthly, yearly
+- **Attachments**: Supporting documents or resources
+- **Groups**: Limit visibility to specific course groups
+
+<Note>
+  Location information can include building/room numbers or virtual meeting links (Zoom, Teams, etc.).
+</Note>
+
+### Recurring Events
+
+Automate repetitive event creation:
+
+- **Daily**: Repeat every day or every N days
+- **Weekly**: Repeat on specific days of the week
+- **Monthly**: Repeat on specific day of month
+- **Custom end date**: Set when recurrence stops
+- **Number of occurrences**: Specify total number of repetitions
+- **Edit series**: Modify all occurrences or just one instance
+
+<Steps>
+  <Step title="Create Initial Event">
+    Set up the first occurrence with all necessary details
+  </Step>
+  <Step title="Enable Recurrence">
+    Select "Recurring Event" option in event editor
+  </Step>
+  <Step title="Configure Pattern">
+    Choose frequency and specify days/dates for repetition
+  </Step>
+  <Step title="Set End Condition">
+    Define when recurrence ends (after date or number of times)
+  </Step>
+</Steps>
+
+### Automatic Integration
+
+Calendar automatically displays deadlines from:
+
+- **Assignment due dates**: All assignment deadlines appear automatically
+- **Assessment windows**: Test and quiz availability and due dates
+- **Lesson Builder requirements**: Completion deadlines from lessons
+- **Sign-up events**: Scheduled appointment slots
+- **Group meeting times**: Collaboration session schedules
+
+<Tip>
+  Automatic events are synchronized in real-time. When you update an assignment due date, the calendar event updates immediately.
+</Tip>
+
+### Calendar Subscriptions
+
+Integrate external calendars:
+
+- **iCal subscriptions**: Import events from external calendar URLs
+- **Export to external**: Subscribe to Sakai calendar in Outlook, Google Calendar, etc.
+- **Institutional calendars**: Merge university-wide academic calendar
+- **Refresh frequency**: Control how often external calendars update
+
+### Notifications and Reminders
+
+Stay informed about upcoming events:
+
+- Email reminders for upcoming deadlines
+- Configurable reminder timing (1 day, 1 week before, etc.)
+- Push notifications on mobile devices
+- Daily or weekly digest of upcoming events
+- RSS feeds for calendar subscriptions
+
+### Permissions
+
+Control calendar access and editing:
+
+| Permission | Instructor | TA | Student |
+|------------|------------|-----|----------|
+| View events | Yes | Yes | Yes |
+| Add events | Yes | Optional | No |
+| Edit own events | Yes | Yes | No |
+| Edit all events | Yes | Optional | No |
+| Delete events | Yes | Optional | No |
+| Import/export | Yes | Yes | Yes |
+
+<Note>
+  Students cannot create calendar events directly, but all deadlines from their assignments and assessments appear automatically.
+</Note>
+
+### Group Events
+
+Schedule events for specific groups:
+
+- Create events visible only to selected groups
+- Useful for section-specific sessions or group meetings
+- Multiple groups can be assigned to single event
+- Students only see events relevant to their groups
+
+### Event Management
+
+Organize and maintain calendar events:
+
+- **Edit events**: Modify details of existing events
+- **Delete events**: Remove cancelled or incorrect events
+- **Duplicate events**: Copy event details to create similar events
+- **Bulk delete**: Remove multiple events at once
+- **Filter display**: Show/hide specific event types
+- **Search events**: Find events by keyword or date range
+
+### Color Coding
+
+Events are color-coded by type for easy identification:
+
+- Different colors for assignments, exams, activities
+- Customizable color scheme per event type
+- Visual distinction between event sources
+- Legend available to explain color meanings
+
+### Time Zone Handling
+
+Support for distributed courses:
+
+- Display times in user's local time zone
+- Automatic adjustment for daylight saving time
+- Time zone indicator on event details
+- Consistent time storage across locations
+
+## Best Practices
+
+### Course Setup
+
+- Add all major deadlines and exam dates at start of semester
+- Create recurring events for regular class meetings
+- Use clear, descriptive event titles
+- Include location information for all in-person events
+- Add virtual meeting links in event descriptions
+
+### Event Organization
+
+- Use consistent naming conventions for similar events
+- Assign appropriate event types for proper color coding
+- Include relevant attachments (agendas, prep materials)
+- Set reminders for important deadlines
+- Review and clean up past events periodically
+
+### Student Communication
+
+- Encourage students to subscribe to calendar in their personal calendars
+- Refer to calendar when announcing deadlines
+- Update calendar promptly if dates change
+- Use event descriptions to provide context and expectations
+- Don't duplicate announcements and calendar events unnecessarily
+
+### Integration Usage
+
+- Rely on automatic integration from Assignments and Tests
+- Only create manual events for items not auto-generated
+- Double-check that tool-created events are accurate
+- Use external calendar subscriptions for institutional events
+
+<Tip>
+  Export your Sakai calendar to your personal calendar app using the subscription URL found in Calendar options. This keeps all your schedules synchronized.
+</Tip>
+
+## Common Use Cases
+
+### Class Schedule
+
+Create recurring events for all class sessions:
+- Set weekly recurrence for each meeting time
+- Include virtual meeting links if applicable
+- Add location and any special instructions
+- Set to recur through end of semester
+
+### Office Hours
+
+Schedule regular availability:
+- Create recurring weekly office hours events
+- Include location (room number or video link)
+- Note any exceptions or cancellations
+- Update as needed for special availability
+
+### Exam Schedule
+
+Plan assessment dates:
+- Add midterm and final exam dates early in semester
+- Include location and time details
+- Set reminder notifications
+- Update with review session information
+
+### Guest Speakers
+
+Schedule special events:
+- Create one-time event for guest lecture
+- Include speaker name and topic in title
+- Attach speaker bio or related materials
+- Send announcement linking to calendar event
+
+## Technical Details
+
+The Calendar tool is implemented using:
+
+- **Core Interface**: `CalendarEvent` and `Calendar` APIs
+- **Event Model**: `TimeRange` for event scheduling (calendar/calendar-api/api/src/java/org/sakaiproject/calendar/api/CalendarEvent.java:29)
+- **Integration**: Event aggregation from multiple Sakai tools
+- **Export**: iCal format support for external calendar clients
+- **Attachments**: Integration with Content Hosting Service
+
+<Note>
+  Calendar subscriptions use the iCalendar standard, making them compatible with all major calendar applications including Google Calendar, Outlook, and Apple Calendar.
+</Note>

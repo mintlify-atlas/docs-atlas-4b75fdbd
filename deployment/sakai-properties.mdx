@@ -1,0 +1,424 @@
+---
+title: Sakai Properties Configuration
+description: Complete guide to configuring Sakai through sakai.properties files
+---
+
+## Overview
+
+Sakai uses a hierarchical configuration system based on properties files. Understanding the load order and available properties is essential for proper deployment and customization.
+
+## Properties File Load Order
+
+Sakai loads configuration properties in the following order (later files override earlier ones):
+
+1. `component-manager/kernel.properties` - Kernel defaults
+2. `config/default.sakai.properties` - Default configuration
+3. `sakai/sakai.properties` - Main configuration
+4. `sakai/local.properties` - Local overrides
+5. `sakai/security.properties` - Security-specific settings
+
+<Warning>
+Always use `local.properties` or `security.properties` for your actual configuration rather than modifying `sakai.properties` directly. This approach follows best practices similar to Apache web server configuration.
+</Warning>
+
+## Server Identification
+
+Identify your application server with unique settings:
+
+```properties
+# Unique server identifier (required even for single server)
+# DEFAULT: localhost
+serverId=sakai-prod-01
+
+# DNS name of the server
+# DEFAULT: localhost
+serverName=sakai.university.edu
+
+# Server aliases for the same content
+# DEFAULT: (EMPTY)
+serverNameAliases=www.sakai.university.edu,lms.university.edu
+
+# The URL to the server including transport, DNS name, and port
+# DEFAULT: http://localhost:8080
+serverUrl=https://sakai.university.edu
+```
+
+## Institutional Personalization
+
+Customize Sakai for your institution:
+
+```properties
+# Institution name displayed in UI
+# DEFAULT: "" (empty string)
+ui.institution=University Name
+
+# Service/application name
+# DEFAULT: Sakai
+ui.service=MyLMS
+
+# Version information (set at build time)
+version.service=MyLMS
+version.sakai=24.0
+```
+
+## Portal Configuration
+
+### Basic Portal Settings
+
+```properties
+# File path to the Sakai portal
+# DEFAULT: /portal
+portalPath=/portal
+
+# File path to the Sakai access servlet (file download)
+# DEFAULT: /access
+accessPath=/access
+
+# File path to the Sakai help webapp
+# DEFAULT: /help
+helpPath=/help
+
+# Enable/disable the Sakai tutorial
+# DEFAULT: true
+portal.use.tutorial=false
+
+# Maximum sites to show in recent sites section
+# DEFAULT: 3
+portal.max.recent.sites=5
+```
+
+### Portal Features
+
+```properties
+# Enable cookie policy warning
+# DEFAULT: false
+portal.cookie.policy.warning.enabled=true
+portal.cookie.policy.warning.url=/library/content/cookie_policy.html
+
+# Allow sites to supply custom icons
+# DEFAULT: true
+portal.siteicon.allow=false
+
+# Enable logout confirmation
+# DEFAULT: false
+portal.logout.confirmation=true
+
+# Display current user role in portal
+# DEFAULT: false
+portal.display.current.role=true
+```
+
+### Google Analytics Integration
+
+```properties
+# GA4 Google Analytics (recommended)
+# DEFAULT: disabled
+portal.google.ga4_id=G-XXXXXXXXXK
+
+# Anonymize IP addresses in Google Analytics
+# DEFAULT: false
+portal.google.anonymize.ip=true
+
+# Google Tag Manager
+# DEFAULT: disabled
+portal.google.tag.manager.container_id=GTM-XXXXX
+```
+
+## Gateway Site
+
+Configure the anonymous access site shown to non-logged-in users:
+
+```properties
+# Gateway site id
+# DEFAULT: !gateway
+gatewaySiteId=!gateway
+
+# Comma-separated list of gateway sites
+# Sites must include .anon role with site.visit permission
+# DEFAULT: displays single gateway site
+gatewaySiteList=!gateway,!public
+```
+
+## Login/Logout Configuration
+
+### Basic Login Settings
+
+```properties
+# Include user id and password on gateway site
+# DEFAULT: true
+top.login=true
+
+# Let container handle login (for SSO)
+# DEFAULT: false
+container.login=false
+
+# Enable extra login for guest access (with container login)
+# DEFAULT: false
+xlogin.enabled=false
+
+# Allow HTTP basic authentication
+# DEFAULT: false
+allow.basic.auth.login=false
+
+# Log failed login attempts
+# DEFAULT: true
+login.log-failed=true
+```
+
+### Container Login (SSO)
+
+```properties
+# Container logout URL
+login.container.logout.url=https://sso.institution.edu/logout
+
+# Container login choice settings
+container.login.choice.text=Institution Users
+login.text.title=Login for institutional users
+
+# External login choice settings
+xlogin.choice.text=Guest Users
+xlogin.text.title=Login for guest users
+```
+
+### Password Reset
+
+```properties
+# URL for password reset
+# DEFAULT: none (auto-detects password reset tool)
+login.password.reset.url=https://password.institution.edu/reset
+```
+
+## Session Management
+
+```properties
+# Session timeout in seconds (1 hour = 3600)
+# DEFAULT: 1800 (30 minutes)
+inactiveInterval@org.sakaiproject.tool.api.SessionManager=3600
+
+# Presence refresh timeout in seconds
+# DEFAULT: 60
+timeoutSeconds@org.sakaiproject.presence.api.PresenceService=120
+
+# Resolve client hostnames on login
+# DEFAULT: false
+session.resolvehostname=true
+
+# Enable timeout dialog popup
+# DEFAULT: true
+timeoutDialogEnabled=true
+
+# Warning time before timeout (seconds)
+# DEFAULT: 600
+timeoutDialogWarningSeconds=300
+```
+
+## Content Hosting
+
+### File Storage
+
+```properties
+# Store files on filesystem instead of database
+# DEFAULT: null (store in database as BLOBs)
+bodyPath@org.sakaiproject.content.api.ContentHostingService=/data/sakai/content
+
+# Support for deleted files
+# DEFAULT: null (disabled)
+bodyPathDeleted@org.sakaiproject.content.api.ContentHostingService=/data/sakai/deleted
+```
+
+<Warning>
+When using filesystem storage, ensure the directory has proper permissions and is backed up regularly. Database storage is simpler but can impact performance with large files.
+</Warning>
+
+## Caching Configuration
+
+### User Cache Settings
+
+```properties
+# User cache configuration (timeToLiveSeconds, timeToIdleSeconds, maxElementsInMemory)
+# DEFAULT: 3600, 900, 20000
+memory.org.sakaiproject.user.api.UserDirectoryService.callCache=timeToLiveSeconds=86400,timeToIdleSeconds=3600,maxElementsInMemory=50000
+```
+
+### Security Cache
+
+```properties
+# Security service cache (in seconds)
+memory.org.sakaiproject.authz.api.SecurityService.cache=timeToLiveSeconds=300,timeToIdleSeconds=300,maxElementsInMemory=10000
+```
+
+### Site Cache
+
+```properties
+# Site service cache (in seconds)
+memory.org.sakaiproject.site.impl.SiteCacheImpl.cache=timeToLiveSeconds=300,timeToIdleSeconds=300,maxElementsInMemory=10000
+```
+
+## Cluster Configuration
+
+<Warning>
+Cluster caching requires an external distributed caching server. Only enable these settings if you have a proper distributed cache infrastructure.
+</Warning>
+
+```properties
+# Enable distributed caching
+# DEFAULT: false
+memory.cluster.enabled=true
+
+# Distributed cache server URLs
+memory.cluster.server.urls.count=2
+memory.cluster.server.urls.1=cache01.institution.edu:9510
+memory.cluster.server.urls.2=cache02.institution.edu:9511
+
+# Caches using distributed storage
+memory.cluster.names.count=2
+memory.cluster.names.1=org.sakaiproject.event.impl.ClusterEventTracking.eventsCache
+memory.cluster.names.2=org.sakaiproject.authz.impl.DbAuthzGroupService.realmRoleGroupCache
+
+# Events cache properties
+memory.cluster.org.sakaiproject.event.impl.ClusterEventTracking.eventsCache.maxEntries=80000
+memory.cluster.org.sakaiproject.event.impl.ClusterEventTracking.eventsCache.timeToIdle=60
+memory.cluster.org.sakaiproject.event.impl.ClusterEventTracking.eventsCache.timeToLive=60
+```
+
+## Locale and Internationalization
+
+```properties
+# Supported language locales
+# DEFAULT: en_US, ja_JP, zh_CN, es_ES, fr_FR, ca_ES, sv_SE, pt_BR, eu, tr_TR, mn, hi_IN, fa_IR, ar, ro_RO, bg, sr
+locales=en_US,es_ES,fr_FR
+
+# Additional locales for debugging
+locales.more=en_US_DEBUG
+
+# RTL (right-to-left) oriented locales
+# DEFAULT: ar,dv,fa,ha,he,iw,ji,ps,ur,yi
+locales.rtl=ar,fa,he
+
+# Default font for PDF exports
+# DEFAULT: system default (probably Helvetica)
+pdf.default.font=Helvetica
+```
+
+## Logging Configuration
+
+```properties
+# Custom log levels (increment log.config.count for each entry)
+log.config.count=2
+log.config.1=INFO.org.hibernate.engine.internal.StatisticalLoggingSessionEventListener
+log.config.2=DEBUG.org.hibernate.SQL
+```
+
+## Auto DDL Settings
+
+```properties
+# Let Sakai generate database objects on startup
+# DEFAULT: true
+auto.ddl=true
+
+# Hibernate schema management (when auto.ddl=false)
+# Options: validate, update, create, create-drop
+# DEFAULT: empty string
+hibernate.hbm2ddl.auto=validate
+
+# Enable SQL debugging
+# DEFAULT: false
+hibernate.show_sql=false
+
+# Enable hibernate statistics
+# DEFAULT: false
+hibernate.generate_statistics=false
+```
+
+<Warning>
+Never use `create` or `create-drop` in production as they will destroy existing data. Use `validate` in production to ensure schema matches without making changes.
+</Warning>
+
+## Search Configuration
+
+```properties
+# Enable search functionality
+# DEFAULT: true
+search.enable=true
+
+# Enable search in portal nav bar
+# DEFAULT: true
+portal.search.enabled=true
+
+# Search results page size
+# DEFAULT: 10
+portal.search.pageSize=20
+```
+
+## WebServices Configuration
+
+```properties
+# Allow login via web services
+webservices.allowlogin=true
+
+# IP addresses allowed to access web services (regex)
+webservices.allow=172\\.17\\.0\\..*
+```
+
+## Scheduler Configuration
+
+```properties
+# Delay before starting scheduler (in minutes)
+# DEFAULT: 1
+startSchedulerDelayMinutes@org.sakaiproject.api.app.scheduler.SchedulerManager=5
+
+# Disable scheduler on startup
+# DEFAULT: true (scheduler starts)
+startScheduler@org.sakaiproject.api.app.scheduler.SchedulerManager=false
+```
+
+## Response Headers
+
+Add custom HTTP response headers:
+
+```properties
+# Number of custom headers
+response.headers.count=2
+
+# Header name::value pairs
+response.headers.1=X-Frame-Options::SAMEORIGIN
+response.headers.2=X-Content-Type-Options::nosniff
+```
+
+## Footer Configuration
+
+```properties
+# Number of footer links
+footerlinks.count=3
+
+# Format: Link text;URL;target (target is optional)
+footerlinks.1=Gateway;/portal/site/!gateway
+footerlinks.2=Accessibility;/portal/help/TOCDisplay/content.hlp?docId=accessibilityinformation;_blank
+footerlinks.3=Support;https://support.institution.edu;_blank
+
+# Copyright text (currentYearFromServer is auto-replaced)
+bottom.copyrighttext=Copyright 2003-currentYearFromServer Your Institution. All rights reserved.
+```
+
+## Best Practices
+
+1. **Use local.properties**: Keep custom settings in `local.properties` rather than modifying `sakai.properties` directly
+2. **Comment your changes**: Always document why you changed a setting
+3. **Version control**: Keep your properties files in version control
+4. **Environment-specific files**: Use different properties files for dev, test, and production
+5. **Security settings**: Store sensitive credentials in `security.properties` with restricted file permissions
+6. **Test changes**: Always test configuration changes in a non-production environment first
+
+## Property Lookup
+
+To find the default value of any property:
+
+1. Check `kernel/component-manager/src/main/bundle/org/sakaiproject/config/kernel.properties`
+2. Check `config/configuration/bundles/src/bundle/org/sakaiproject/config/bundle/default.sakai.properties`
+3. Search the source code for `@propertyname` patterns
+
+## Related Documentation
+
+- [Database Configuration](/deployment/database-configuration)
+- [Email Configuration](/deployment/email-configuration)
+- [Skin Customization](/deployment/skin-customization)

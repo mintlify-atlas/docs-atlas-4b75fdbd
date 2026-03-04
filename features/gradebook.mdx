@@ -1,0 +1,217 @@
+---
+title: Gradebook
+description: Track student performance with a comprehensive gradebook that supports categories, weighted grading, and flexible grading scales
+---
+
+## Overview
+
+The Gradebook (GradebookNG) is a powerful grade management tool that allows instructors to record, calculate, and analyze student performance. It supports multiple grading schemes, category weighting, and automated grade calculations while providing students with real-time access to their grades.
+
+## Key Features
+
+### Grade Items
+
+Create and manage various types of grade items:
+
+- **Manual items**: Create standalone grade items for participation, attendance, etc.
+- **Tool-integrated items**: Automatically created from Assignments, Tests & Quizzes, etc.
+- **Extra credit**: Support for bonus points that don't affect grade denominator
+- **Points or percentages**: Flexible scoring options
+- **Released/unreleased**: Control when students can view grades
+
+### Grading Interface
+
+The modern gradebook interface provides:
+
+- **Spreadsheet view**: Grid layout showing all students and grade items
+- **Quick editing**: Click any cell to enter or update grades
+- **Color coding**: Visual indicators for submitted, graded, and overdue work
+- **Sorting and filtering**: Organize by student name, grade, or status
+- **Search functionality**: Quickly find specific students or assignments
+
+<Tip>
+  Use keyboard navigation (Tab, Enter, arrow keys) to quickly move between cells when entering grades for multiple students.
+</Tip>
+
+### Categories and Weighting
+
+Organize grade items into categories with custom weights:
+
+<Steps>
+  <Step title="Create Categories">
+    Define categories like "Homework", "Exams", "Projects" to organize grade items
+  </Step>
+  <Step title="Assign Weights">
+    Set percentage weights for each category (e.g., Homework 30%, Exams 50%, Projects 20%)
+  </Step>
+  <Step title="Add Items to Categories">
+    Place grade items in appropriate categories for automatic calculation
+  </Step>
+  <Step title="Configure Drop Rules">
+    Optionally drop lowest scores within categories
+  </Step>
+</Steps>
+
+### Grading Scales
+
+Support for multiple grading systems:
+
+- **Points**: Traditional numeric scoring (e.g., 0-100)
+- **Percentages**: Calculate as percentage of possible points
+- **Letter grades**: A-F scale with customizable thresholds
+- **Pass/Fail**: Binary grading option
+- **Custom scales**: Define institutional grading schemes
+
+### Grade Calculation Methods
+
+Choose how the course grade is calculated:
+
+| Method | Description |
+|--------|-------------|
+| Weighted Categories | Each category contributes a set percentage to final grade |
+| Points | Sum all points earned divided by total possible points |
+| Categories (equal weight) | Each category weighted equally regardless of points |
+
+<Note>
+  Changing the grade calculation method after grading has begun will recalculate all course grades. Review the impact before making changes.
+</Note>
+
+### Student View
+
+Students can access their grades with:
+
+- **Individual grade view**: See all released grades and current course grade
+- **Points and percentages**: View scores in multiple formats
+- **Category breakdowns**: See performance by category
+- **Grade statistics**: Compare performance to class average (if enabled)
+- **Assignment feedback**: Access instructor comments directly from gradebook
+
+### Instructor Analytics
+
+Powerful analysis tools for instructors:
+
+- **Class statistics**: Mean, median, mode for each grade item
+- **Grade distribution**: Visual charts showing score ranges
+- **Performance tracking**: Identify struggling students early
+- **Export functionality**: Download grades to Excel/CSV
+- **Audit log**: Track all grade changes with timestamps
+
+### Permissions and Security
+
+Granular control over grade access:
+
+- **Instructor**: Full access to create items, enter grades, and view all data
+- **TA/Grader**: Can view and grade assigned sections or groups
+- **Student**: View only their own released grades
+- **Section-based permissions**: Restrict grader access to specific course sections
+
+<Tip>
+  Use section-based permissions when working with teaching assistants to ensure they only access grades for students in their assigned sections.
+</Tip>
+
+### Grade Import and Export
+
+Efficiently manage grades in bulk:
+
+<Steps>
+  <Step title="Export Current Grades">
+    Download the current gradebook as a CSV or Excel file with all students and items
+  </Step>
+  <Step title="Edit Offline">
+    Make changes in your spreadsheet application, adding grades or comments
+  </Step>
+  <Step title="Import Updated Grades">
+    Upload the modified file to update multiple grades simultaneously
+  </Step>
+  <Step title="Review Changes">
+    Confirm the import and review a summary of changes before finalizing
+  </Step>
+</Steps>
+
+### Comments and Feedback
+
+Enhance grades with contextual feedback:
+
+- **Per-item comments**: Add text feedback for individual grade items
+- **Private notes**: Instructor-only notes not visible to students
+- **Inline feedback**: Comments display alongside grades in student view
+- **Feedback history**: Complete record of all feedback provided
+
+### Drop Lowest Scores
+
+Automate grade calculation policies:
+
+- Configure categories to drop the lowest N scores
+- Useful for homework or quiz categories with multiple attempts
+- Automatically recalculates as new grades are entered
+- Display dropped items clearly in student view
+
+<Note>
+  Dropped scores are indicated with strikethrough formatting in both instructor and student views to maintain transparency.
+</Note>
+
+### Grade Override
+
+Handle special cases with manual overrides:
+
+- Override calculated course grades when needed
+- Document reason for override in comments
+- Visual indicator shows when a grade has been manually adjusted
+- Original calculated grade preserved for reference
+
+### Curved Grading
+
+Apply curves to grade items or overall grades:
+
+- Add fixed points to all students
+- Apply percentage-based curves
+- Set minimum/maximum grade thresholds
+- Preview curve impact before applying
+
+## Best Practices
+
+### Setup Phase
+
+- Configure your grading scale and calculation method before the semester starts
+- Create categories that align with your syllabus
+- Set up grade item templates for recurring assignment types
+- Test grade calculations with sample data before going live
+
+### During the Semester
+
+- Release grades consistently and promptly after grading
+- Use comments to provide meaningful feedback beyond numeric scores
+- Regularly export gradebook backups
+- Monitor class statistics to identify items that may need adjustment
+- Keep students informed about when grades will be released
+
+### End of Semester
+
+- Review all grade items are released or final
+- Check for missing grades or incomplete entries
+- Verify course grade calculations before submitting final grades
+- Export final gradebook for your records
+- Consider keeping gradebook data for one year for student inquiries
+
+## Integration with Other Tools
+
+The Gradebook automatically integrates with:
+
+- **Assignments**: Grades sync automatically when assignments are graded
+- **Tests & Quizzes**: Assessment scores appear as grade items
+- **Lesson Builder**: Embedded activities can send scores to gradebook
+- **External LTI Tools**: Integrated tools can post grades back
+
+<Tip>
+  Tool-created grade items are locked from manual editing in the gradebook. Update scores in the originating tool (Assignments, Tests, etc.) to modify these grades.
+</Tip>
+
+## Technical Details
+
+The Gradebook is implemented using:
+
+- **Core Service**: `GradingService` interface (gradebookng/api/src/main/java/org/sakaiproject/grading/api/GradingService.java:55)
+- **Data Models**: `Gradebook`, `GradebookAssignment`, `GradingEvent` entities
+- **Framework**: Modern front-end using web components and Bootstrap 5
+- **Calculation Engine**: Supports multiple calculation methods with configurable precision
+- **Permissions**: Integrated with Sakai's role-based security system

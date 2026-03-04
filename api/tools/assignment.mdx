@@ -1,0 +1,607 @@
+---
+title: AssignmentService API
+description: API reference for managing assignments and submissions in Sakai LMS
+---
+
+## Overview
+
+The `AssignmentService` is the main service interface for managing assignments and student submissions in Sakai LMS. Each assignment has associated content and a list of student submissions.
+
+**Package**: `org.sakaiproject.assignment.api`
+
+**Source**: `/assignment/api/src/java/org/sakaiproject/assignment/api/AssignmentService.java`
+
+## Permission Checking
+
+### allowAddAssignment
+
+Check if the current user can add an assignment in the specified context.
+
+```java
+public boolean allowAddAssignment(String context);
+```
+
+<ParamField path="context" type="String" required>
+  The portlet context (site ID)
+</ParamField>
+
+**Returns**: `true` if the user can add assignments, `false` otherwise
+
+**Example**:
+```java
+if (assignmentService.allowAddAssignment(siteId)) {
+    // Show "Add Assignment" button
+}
+```
+
+### allowUpdateAssignment
+
+Check if the current user can update a specific assignment.
+
+```java
+public boolean allowUpdateAssignment(String assignmentReference);
+```
+
+<ParamField path="assignmentReference" type="String" required>
+  The assignment's reference string
+</ParamField>
+
+**Returns**: `true` if the user can update the assignment, `false` otherwise
+
+### allowGradeSubmission
+
+Check if the current user can grade submissions for an assignment.
+
+```java
+public boolean allowGradeSubmission(String assignmentReference);
+```
+
+<ParamField path="assignmentReference" type="String" required>
+  The assignment's reference string
+</ParamField>
+
+**Returns**: `true` if the user can grade submissions, `false` otherwise
+
+### allowAddSubmission
+
+Check if the current user can submit to assignments in the specified context.
+
+```java
+public boolean allowAddSubmission(String context);
+```
+
+<ParamField path="context" type="String" required>
+  The portlet context (site ID)
+</ParamField>
+
+**Returns**: `true` if the user can submit assignments, `false` otherwise
+
+## Assignment Management
+
+### addAssignment
+
+Create a new assignment in the specified context.
+
+```java
+public Assignment addAssignment(String context) throws PermissionException;
+```
+
+<ParamField path="context" type="String" required>
+  The site ID for this assignment
+</ParamField>
+
+**Returns**: The new `Assignment` object ready for editing
+
+**Throws**: `PermissionException` if the user lacks permission
+
+**Example**:
+```java
+try {
+    Assignment assignment = assignmentService.addAssignment(siteId);
+    assignment.setTitle("Essay Assignment");
+    assignment.setInstructions("Write a 500-word essay...");
+    assignment.setMaxGradePoint(100);
+    assignment.setDueDate(Instant.now().plus(7, ChronoUnit.DAYS));
+    assignmentService.updateAssignment(assignment);
+} catch (PermissionException e) {
+    log.error("Permission denied creating assignment", e);
+}
+```
+
+### addDuplicateAssignment
+
+Create a duplicate of an existing assignment.
+
+```java
+public Assignment addDuplicateAssignment(
+    String context, 
+    String assignmentId
+) throws IdInvalidException, PermissionException, IdUsedException, IdUnusedException;
+```
+
+<ParamField path="context" type="String" required>
+  The context for the new assignment
+</ParamField>
+
+<ParamField path="assignmentId" type="String" required>
+  The ID of the assignment to duplicate
+</ParamField>
+
+**Returns**: The new duplicated `Assignment` object, or null if the original doesn't exist
+
+**Example**:
+```java
+Assignment duplicate = assignmentService.addDuplicateAssignment(
+    siteId, 
+    originalAssignmentId
+);
+duplicate.setTitle(duplicate.getTitle() + " (Copy)");
+assignmentService.updateAssignment(duplicate);
+```
+
+### getAssignment
+
+Retrieve an assignment by its ID.
+
+```java
+public Assignment getAssignment(String assignmentId) 
+    throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="assignmentId" type="String" required>
+  The ID of the assignment
+</ParamField>
+
+**Returns**: The `Assignment` object
+
+**Throws**:
+- `IdUnusedException` - If no assignment exists with this ID
+- `PermissionException` - If the user lacks read permission
+
+**Example**:
+```java
+try {
+    Assignment assignment = assignmentService.getAssignment(assignmentId);
+    System.out.println("Title: " + assignment.getTitle());
+    System.out.println("Due: " + assignment.getDueDate());
+} catch (IdUnusedException e) {
+    log.error("Assignment not found: " + assignmentId);
+}
+```
+
+### updateAssignment
+
+Update an existing assignment.
+
+```java
+public void updateAssignment(Assignment assignment) throws PermissionException;
+```
+
+<ParamField path="assignment" type="Assignment" required>
+  The assignment object with updated properties
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+### deleteAssignment
+
+Permanently delete an assignment.
+
+```java
+public void deleteAssignment(Assignment assignment) throws PermissionException;
+```
+
+<ParamField path="assignment" type="Assignment" required>
+  The assignment to delete
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+### softDeleteAssignment
+
+Soft delete an assignment (mark as deleted without removing from database).
+
+```java
+public void softDeleteAssignment(Assignment assignment) throws PermissionException;
+```
+
+<ParamField path="assignment" type="Assignment" required>
+  The assignment to soft delete
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+### getAssignmentsForContext
+
+Get all non-deleted assignments for a site.
+
+```java
+public Collection<Assignment> getAssignmentsForContext(String context);
+```
+
+<ParamField path="context" type="String" required>
+  The site ID
+</ParamField>
+
+**Returns**: Collection of `Assignment` objects
+
+**Example**:
+```java
+Collection<Assignment> assignments = assignmentService.getAssignmentsForContext(siteId);
+for (Assignment a : assignments) {
+    System.out.println(a.getTitle() + " - Due: " + a.getDueDate());
+}
+```
+
+## Submission Management
+
+### addSubmission
+
+Create a new submission for an assignment.
+
+```java
+public AssignmentSubmission addSubmission(
+    String assignmentId, 
+    String submitter
+) throws PermissionException;
+```
+
+<ParamField path="assignmentId" type="String" required>
+  The assignment's ID
+</ParamField>
+
+<ParamField path="submitter" type="String" required>
+  The submitter's user ID (can be a group ID for group submissions)
+</ParamField>
+
+**Returns**: The new `AssignmentSubmission`, or null if creation failed
+
+**Throws**: `PermissionException` if the user lacks permission
+
+**Example**:
+```java
+try {
+    AssignmentSubmission submission = assignmentService.addSubmission(
+        assignmentId, 
+        userId
+    );
+    submission.setSubmittedText("My submission text...");
+    assignmentService.updateSubmission(submission);
+} catch (PermissionException e) {
+    log.error("Cannot create submission", e);
+}
+```
+
+### getSubmission
+
+Get a submission by assignment and submitter.
+
+```java
+public AssignmentSubmission getSubmission(
+    String assignmentReference, 
+    String submitterId
+) throws PermissionException;
+```
+
+<ParamField path="assignmentReference" type="String" required>
+  The assignment reference
+</ParamField>
+
+<ParamField path="submitterId" type="String" required>
+  The user or group ID of the submitter
+</ParamField>
+
+**Returns**: The `AssignmentSubmission`, or null if none exists
+
+**Example**:
+```java
+String assignmentRef = assignmentService.assignmentReference(siteId, assignmentId);
+AssignmentSubmission submission = assignmentService.getSubmission(
+    assignmentRef, 
+    userId
+);
+if (submission != null) {
+    System.out.println("Submitted: " + submission.getDateSubmitted());
+    System.out.println("Grade: " + submission.getGrade());
+}
+```
+
+### getSubmissions
+
+Get all submissions for an assignment.
+
+```java
+public Set<AssignmentSubmission> getSubmissions(Assignment assignment);
+```
+
+<ParamField path="assignment" type="Assignment" required>
+  The assignment
+</ParamField>
+
+**Returns**: Set of all `AssignmentSubmission` objects for the assignment
+
+**Example**:
+```java
+Assignment assignment = assignmentService.getAssignment(assignmentId);
+Set<AssignmentSubmission> submissions = assignmentService.getSubmissions(assignment);
+System.out.println("Total submissions: " + submissions.size());
+```
+
+### updateSubmission
+
+Update an existing submission.
+
+```java
+public void updateSubmission(AssignmentSubmission submission) 
+    throws PermissionException;
+```
+
+<ParamField path="submission" type="AssignmentSubmission" required>
+  The submission with updated properties
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+### removeSubmission
+
+Remove a submission and all references to it.
+
+```java
+public void removeSubmission(AssignmentSubmission submission) 
+    throws PermissionException;
+```
+
+<ParamField path="submission" type="AssignmentSubmission" required>
+  The submission to remove
+</ParamField>
+
+**Throws**: `PermissionException` if the user lacks permission
+
+## Grading
+
+### getGradeForSubmitter
+
+Get the effective grade for a submitter on a submission.
+
+```java
+public String getGradeForSubmitter(
+    AssignmentSubmission submission, 
+    String submitter
+);
+```
+
+<ParamField path="submission" type="AssignmentSubmission" required>
+  The overall submission
+</ParamField>
+
+<ParamField path="submitter" type="String" required>
+  The individual submitter ID
+</ParamField>
+
+**Returns**: The grade (returns override if it exists, otherwise the main grade)
+
+**Example**:
+```java
+for (AssignmentSubmissionSubmitter submitter : submission.getSubmitters()) {
+    String grade = assignmentService.getGradeForSubmitter(
+        submission, 
+        submitter.getSubmitter()
+    );
+    System.out.println(submitter.getSubmitter() + ": " + grade);
+}
+```
+
+### getGradeDisplay
+
+Format a grade for display according to the assignment's grade type.
+
+```java
+public String getGradeDisplay(
+    String grade, 
+    Assignment.GradeType typeOfGrade, 
+    Integer scaleFactor
+);
+```
+
+<ParamField path="grade" type="String" required>
+  The raw grade value
+</ParamField>
+
+<ParamField path="typeOfGrade" type="Assignment.GradeType" required>
+  The grade type (SCORE_GRADE_TYPE, LETTER_GRADE_TYPE, etc.)
+</ParamField>
+
+<ParamField path="scaleFactor" type="Integer" required>
+  The scale factor for decimal places
+</ParamField>
+
+**Returns**: The formatted grade string
+
+### getGradesSpreadsheet
+
+Generate a grades spreadsheet for assignments.
+
+```java
+public byte[] getGradesSpreadsheet(String ref) 
+    throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="ref" type="String" required>
+  Reference to a specific assignment or assignment context
+</ParamField>
+
+**Returns**: The grades spreadsheet as a byte array
+
+**Throws**:
+- `IdUnusedException` - If the reference doesn't exist
+- `PermissionException` - If the user lacks access
+
+### getSubmissionsZip
+
+Generate a ZIP file containing all submissions for an assignment.
+
+```java
+public void getSubmissionsZip(
+    OutputStream out, 
+    String ref, 
+    String queryString
+) throws IdUnusedException, PermissionException;
+```
+
+<ParamField path="out" type="OutputStream" required>
+  The output stream to write the ZIP file to
+</ParamField>
+
+<ParamField path="ref" type="String" required>
+  The assignment reference
+</ParamField>
+
+<ParamField path="queryString" type="String">
+  Optional query string for filtering
+</ParamField>
+
+## Utility Methods
+
+### assignmentReference
+
+Get the internal reference for an assignment.
+
+```java
+public String assignmentReference(String context, String id);
+```
+
+<ParamField path="context" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="id" type="String" required>
+  The assignment ID
+</ParamField>
+
+**Returns**: The assignment reference string
+
+### canSubmit
+
+Check if a user can submit to an assignment.
+
+```java
+public boolean canSubmit(Assignment assignment, String userId);
+```
+
+<ParamField path="assignment" type="Assignment" required>
+  The assignment to check
+</ParamField>
+
+<ParamField path="userId" type="String">
+  The user ID (blank checks current user)
+</ParamField>
+
+**Returns**: `true` if the user can submit, `false` otherwise
+
+### getDeepLink
+
+Get a deep link directly into an assignment.
+
+```java
+public String getDeepLink(
+    String context, 
+    String assignmentId, 
+    String userId
+) throws Exception;
+```
+
+<ParamField path="context" type="String" required>
+  The site ID
+</ParamField>
+
+<ParamField path="assignmentId" type="String" required>
+  The assignment ID
+</ParamField>
+
+<ParamField path="userId" type="String" required>
+  The user ID
+</ParamField>
+
+**Returns**: The deep link URL as a string
+
+## Complete Example
+
+```java
+import org.sakaiproject.assignment.api.*;
+import org.sakaiproject.assignment.api.model.*;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
+public class AssignmentExample {
+    
+    private AssignmentService assignmentService;
+    
+    public void createAndGradeAssignment(String siteId) {
+        try {
+            // Create assignment
+            Assignment assignment = assignmentService.addAssignment(siteId);
+            assignment.setTitle("Week 1 Essay");
+            assignment.setInstructions("Write a 500-word essay on...");
+            assignment.setTypeOfSubmission(Assignment.SubmissionType.TEXT_AND_ATTACHMENT_ASSIGNMENT_SUBMISSION);
+            assignment.setTypeOfGrade(Assignment.GradeType.SCORE_GRADE_TYPE);
+            assignment.setMaxGradePoint(100);
+            
+            // Set dates
+            Instant now = Instant.now();
+            assignment.setOpenDate(now);
+            assignment.setDueDate(now.plus(7, ChronoUnit.DAYS));
+            assignment.setCloseDate(now.plus(14, ChronoUnit.DAYS));
+            
+            assignmentService.updateAssignment(assignment);
+            
+            // Student submits
+            String studentId = "student123";
+            if (assignmentService.canSubmit(assignment, studentId)) {
+                AssignmentSubmission submission = assignmentService.addSubmission(
+                    assignment.getId(), 
+                    studentId
+                );
+                submission.setSubmittedText("Here is my essay...");
+                submission.setSubmitted(true);
+                submission.setDateSubmitted(Instant.now());
+                assignmentService.updateSubmission(submission);
+            }
+            
+            // Instructor grades
+            String instructorId = "instructor456";
+            if (assignmentService.allowGradeSubmission(assignment.getId())) {
+                AssignmentSubmission submission = assignmentService.getSubmission(
+                    assignment.getId(), 
+                    studentId
+                );
+                submission.setGrade("85");
+                submission.setGraded(true);
+                submission.setGradedBy(instructorId);
+                submission.setDateGraded(Instant.now());
+                submission.setFeedbackText("Good work! Consider adding more detail...");
+                assignmentService.updateSubmission(submission);
+            }
+            
+            // List all submissions
+            Set<AssignmentSubmission> submissions = 
+                assignmentService.getSubmissions(assignment);
+            for (AssignmentSubmission sub : submissions) {
+                System.out.println("Submitter: " + sub.getSubmitters());
+                System.out.println("Grade: " + sub.getGrade());
+                System.out.println("Submitted: " + sub.getDateSubmitted());
+            }
+            
+        } catch (PermissionException e) {
+            System.err.println("Permission denied: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+}
+```
+
+## See Also
+
+- [Assignment Model Objects](/api/tools/assignment-models) - Assignment and submission data models
+- [Gradebook API](/api/tools/gradebook) - Integration with gradebook
+- [Content Hosting API](/api/kernel/content) - File attachment handling

@@ -1,0 +1,362 @@
+---
+title: Building from Source
+description: Build and deploy Sakai LMS from source code
+---
+
+## Quick Start
+
+This is the "Mini Quick Start" - for complete configuration steps, see the [Sakai Quick Start Guide](https://github.com/sakaiproject/sakai/wiki/Quick-Start-from-Source).
+
+### Basic Build
+
+Build Sakai using Maven:
+
+<CodeGroup>
+```bash Maven
+mvn install
+```
+
+```bash Maven Wrapper
+./mvnw install
+```
+</CodeGroup>
+
+The first build will take 15-30 minutes as Maven downloads dependencies.
+
+### Build and Deploy
+
+Deploy Sakai to your Tomcat installation:
+
+```bash
+mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/your/tomcat
+```
+
+Replace `/path/to/your/tomcat` with your actual Tomcat directory path.
+
+## Build Profiles
+
+Sakai uses Maven profiles to control what gets built:
+
+### All Profile (Default)
+
+Builds all standard modules:
+
+```bash
+mvn clean install -P all
+```
+
+This profile includes:
+- Core kernel and APIs
+- All standard tools (Assignments, Gradebook, Forums, etc.)
+- Web components
+- Portal and login
+- Admin tools
+
+### API Only Profile
+
+Build only API modules for faster compilation:
+
+```bash
+mvn clean install -P api
+```
+
+### Experimental Profile
+
+Includes experimental and contrib tools:
+
+```bash
+mvn clean install -P experimental
+```
+
+### Pack Profiles
+
+Create release artifacts:
+
+<CodeGroup>
+```bash Binary Pack
+mvn clean install -P pack-bin
+```
+
+```bash Source Pack
+mvn clean install -P pack-src
+```
+
+```bash All Packs
+mvn clean install -P pack
+```
+</CodeGroup>
+
+## Build Commands
+
+### Full Clean Build
+
+Perform a complete clean build:
+
+```bash
+mvn clean install
+```
+
+### Skip Tests
+
+Build faster by skipping tests:
+
+```bash
+mvn clean install -DskipTests
+```
+
+<Warning>
+  Only skip tests during development. Always run tests before creating a pull request.
+</Warning>
+
+### Build Specific Module
+
+Build only a specific tool or module:
+
+```bash
+# Navigate to module directory
+cd assignment
+mvn clean install
+```
+
+### Offline Build
+
+Build without checking for updates:
+
+```bash
+mvn clean install -o
+```
+
+### Skip Checkstyle
+
+Bypass Checkstyle validation (emergencies only):
+
+```bash
+mvn clean install -Dcheckstyle.skip=true
+```
+
+<Warning>
+  Do not commit code that requires `-Dcheckstyle.skip=true`. Fix the violations instead.
+</Warning>
+
+## Deploy to Tomcat
+
+### Standard Deployment
+
+Deploy built artifacts to Tomcat:
+
+```bash
+mvn clean install sakai:deploy -Dmaven.tomcat.home=/path/to/tomcat
+```
+
+### Quick Redeploy
+
+After making changes to a single tool, redeploy just that module:
+
+<Steps>
+  <Step title="Build the module">
+    ```bash
+    cd assignment
+    mvn clean install
+    ```
+  </Step>
+
+  <Step title="Deploy the module">
+    ```bash
+    mvn sakai:deploy -Dmaven.tomcat.home=/path/to/tomcat
+    ```
+  </Step>
+
+  <Step title="Restart Tomcat">
+    ```bash
+    cd /path/to/tomcat/bin
+    ./shutdown.sh
+    ./startup.sh
+    ```
+  </Step>
+</Steps>
+
+## Frontend Build Commands
+
+For web components development:
+
+### Lint JavaScript
+
+Check code quality:
+
+```bash
+cd webcomponents/tool/src/main/frontend
+npm run lint
+```
+
+Auto-fix linting issues:
+
+```bash
+npm run lintfix
+```
+
+### Bundle JavaScript
+
+Create production bundles using ESBuild:
+
+```bash
+npm run bundle
+```
+
+### Analyze Bundles
+
+Generate bundle analysis:
+
+```bash
+npm run analyze-bundle
+```
+
+### Type Checking
+
+Run Lit analyzer for static type checking:
+
+```bash
+npm run analyze
+```
+
+### Run Tests
+
+Execute Web Test Runner tests:
+
+```bash
+npm run test
+```
+
+## Running Sakai
+
+### Start Tomcat
+
+After deployment, start Tomcat:
+
+```bash
+cd /path/to/tomcat/bin
+./startup.sh && tail -f ../logs/catalina.out
+```
+
+Sakai typically takes 30-60 seconds to start up.
+
+### Access Sakai
+
+Once started, open your browser to:
+
+```
+http://localhost:8080/portal
+```
+
+Default credentials (if using demo data):
+- **Username**: admin
+- **Password**: admin
+
+### Stop Tomcat
+
+```bash
+cd /path/to/tomcat/bin
+./shutdown.sh
+```
+
+## Testing Builds
+
+### Run Unit Tests
+
+Execute tests for a single module:
+
+<CodeGroup>
+```bash Test Class
+mvn test -Dtest=TestClassName
+```
+
+```bash Test Method
+mvn test -Dtest=TestClassName#testMethodName
+```
+
+```bash All Tests
+mvn test
+```
+</CodeGroup>
+
+### Run E2E Tests
+
+Run Playwright end-to-end tests:
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export PLAYWRIGHT_BASE_URL=https://localhost:8080
+mvn -f e2e-tests/pom.xml test
+```
+
+Run a specific test:
+
+```bash
+mvn -f e2e-tests/pom.xml -Dtest=AssignmentTest test
+```
+
+## Build Optimization
+
+### Parallel Builds
+
+Speed up builds using multiple threads:
+
+```bash
+mvn clean install -T 4
+```
+
+This uses 4 threads. Adjust based on your CPU cores.
+
+### Maven Daemon
+
+Use Maven Daemon for faster repeated builds:
+
+```bash
+# Install mvnd
+brew install mvnd  # macOS
+
+# Use mvnd instead of mvn
+mvnd clean install
+```
+
+## Troubleshooting
+
+### Out of Memory
+
+Increase Maven memory:
+
+```bash
+export MAVEN_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+mvn clean install
+```
+
+### Dependency Issues
+
+Clear Maven cache and rebuild:
+
+```bash
+rm -rf ~/.m2/repository/org/sakaiproject
+mvn clean install
+```
+
+### Port Conflicts
+
+Change Tomcat port in `server.xml`:
+
+```xml
+<Connector port="8080" protocol="HTTP/1.1"
+           connectionTimeout="20000"
+           redirectPort="8443" />
+```
+
+Change `8080` to another port like `9090`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tool Development" icon="wrench" href="./tool-development">
+    Learn to develop Sakai tools and modules
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="./testing">
+    Write and run tests for your code
+  </Card>
+</CardGroup>

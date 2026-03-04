@@ -1,0 +1,554 @@
+---
+title: SessionManager API
+description: Session and user context management for Sakai LMS
+---
+
+The `SessionManager` keeps track of Sakai-wide and tool placement specific user sessions, modeled on the HttpSession of the Servlet API.
+
+## Overview
+
+Package: `org.sakaiproject.tool.api`
+
+The SessionManager provides:
+
+- User session creation and management
+- Tool-specific session tracking
+- Thread-local session context
+- Session lifecycle management
+- Active user counting
+
+## Key Concepts
+
+- **Session**: A Sakai-wide user session containing user ID, attributes, and metadata
+- **ToolSession**: A tool-specific session for storing tool-related state
+- **Current Session**: The session associated with the current request/thread
+- **Thread-Local Context**: Sessions are bound to the current thread for easy access
+
+## Constants
+
+<ParamField path="CURRENT_INVALID_SESSION" type="String" default="sakai:session.was.invalid">
+  ThreadLocalManager key indicating a requested session was invalid and a new one was started
+</ParamField>
+
+## Core Methods
+
+### Session Access
+
+#### getCurrentSession
+
+```java
+Session getCurrentSession()
+```
+
+Access the session associated with the current request or processing thread.
+
+<Warning>
+  If there isn't a session associated with the thread, a new one will be created but it won't persist beyond this request.
+</Warning>
+
+<ResponseField name="Session" type="Session">
+  The session associated with the current thread
+</ResponseField>
+
+**Example:**
+```java
+Session session = sessionManager.getCurrentSession();
+
+// Get user ID
+String userId = session.getUserId();
+
+// Check if user is logged in
+if (userId != null) {
+    // User is authenticated
+    User user = userDirectoryService.getUser(userId);
+} else {
+    // User is anonymous
+}
+
+// Store session attribute
+session.setAttribute("lastVisitedPage", "/site/home");
+
+// Retrieve session attribute
+String lastPage = (String) session.getAttribute("lastVisitedPage");
+```
+
+---
+
+#### getCurrentSessionUserId
+
+```java
+String getCurrentSessionUserId()
+```
+
+Access the current session's user ID.
+
+<ResponseField name="String" type="String">
+  The current session's user ID, or null if no session or no user ID
+</ResponseField>
+
+**Example:**
+```java
+String userId = sessionManager.getCurrentSessionUserId();
+if (userId != null) {
+    log.info("Current user: " + userId);
+} else {
+    log.info("Anonymous user");
+}
+```
+
+---
+
+#### getSession
+
+```java
+Session getSession(String sessionId)
+```
+
+Access a known session by ID.
+
+<ParamField path="sessionId" type="String" required>
+  The session ID
+</ParamField>
+
+<ResponseField name="Session" type="Session">
+  The Session object with this ID, or null if not found
+</ResponseField>
+
+**Example:**
+```java
+Session session = sessionManager.getSession(sessionId);
+if (session != null) {
+    String userId = session.getUserId();
+    long lastAccessedTime = session.getLastAccessedTime();
+}
+```
+
+---
+
+#### getSessions
+
+```java
+List<Session> getSessions()
+```
+
+Get all current sessions.
+
+<ResponseField name="List<Session>" type="List<Session>">
+  List of all active sessions
+</ResponseField>
+
+**Example:**
+```java
+List<Session> allSessions = sessionManager.getSessions();
+System.out.println("Active sessions: " + allSessions.size());
+
+for (Session session : allSessions) {
+    String userId = session.getUserId();
+    if (userId != null) {
+        System.out.println("User: " + userId);
+    }
+}
+```
+
+---
+
+### Session Creation
+
+#### startSession
+
+```java
+Session startSession()
+```
+
+Start a new session with an auto-generated ID.
+
+<ResponseField name="Session" type="Session">
+  The new Session
+</ResponseField>
+
+**Example:**
+```java
+Session session = sessionManager.startSession();
+String sessionId = session.getId();
+
+// Set as current session
+sessionManager.setCurrentSession(session);
+
+// Set user ID after authentication
+session.setUserId(authenticatedUserId);
+```
+
+---
+
+#### startSession (With ID)
+
+```java
+Session startSession(String id)
+```
+
+Start a new session using a specific session ID.
+
+<ParamField path="id" type="String" required>
+  The session ID to use
+</ParamField>
+
+<ResponseField name="Session" type="Session">
+  The new Session
+</ResponseField>
+
+---
+
+#### makeSessionId
+
+```java
+String makeSessionId(HttpServletRequest req, Principal principal)
+```
+
+Generate a session ID for the given request and principal.
+
+<ParamField path="req" type="HttpServletRequest" required>
+  The HTTP request
+</ParamField>
+
+<ParamField path="principal" type="Principal" required>
+  The principal (user)
+</ParamField>
+
+<ResponseField name="String" type="String">
+  The generated session ID
+</ResponseField>
+
+---
+
+### Current Session Management
+
+#### setCurrentSession
+
+```java
+void setCurrentSession(Session s)
+```
+
+Set a session as the current one for this thread.
+
+<ParamField path="s" type="Session" required>
+  The session to set as current
+</ParamField>
+
+**Example:**
+```java
+// In a filter or interceptor
+String sessionId = getSessionIdFromCookie(request);
+Session session = sessionManager.getSession(sessionId);
+
+if (session != null) {
+    sessionManager.setCurrentSession(session);
+} else {
+    // Create new session
+    session = sessionManager.startSession();
+    sessionManager.setCurrentSession(session);
+}
+
+try {
+    // Process request
+    chain.doFilter(request, response);
+} finally {
+    // Clear thread-local session
+    sessionManager.setCurrentSession(null);
+}
+```
+
+---
+
+### Tool Session Management
+
+#### getCurrentToolSession
+
+```java
+ToolSession getCurrentToolSession()
+```
+
+Access the tool session associated with the current request or thread.
+
+<ResponseField name="ToolSession" type="ToolSession">
+  The tool session for the current thread
+</ResponseField>
+
+**Example:**
+```java
+// In a tool
+ToolSession toolSession = sessionManager.getCurrentToolSession();
+
+// Store tool-specific state
+toolSession.setAttribute("currentStep", 3);
+toolSession.setAttribute("formData", formDataObject);
+
+// Retrieve tool state
+Integer step = (Integer) toolSession.getAttribute("currentStep");
+FormData data = (FormData) toolSession.getAttribute("formData");
+```
+
+---
+
+#### setCurrentToolSession
+
+```java
+void setCurrentToolSession(ToolSession s)
+```
+
+Set a tool session as the current one for this thread.
+
+<ParamField path="s" type="ToolSession" required>
+  The tool session to set as current
+</ParamField>
+
+---
+
+### Active User Counting
+
+#### getActiveUserCount
+
+```java
+int getActiveUserCount(int secs)
+```
+
+Count the number of users with sessions active within a time period.
+
+<ParamField path="secs" type="int" required>
+  Elapsed time in seconds within which sessions have been active
+</ParamField>
+
+<ResponseField name="int" type="int">
+  Number of users with active sessions in the time period
+</ResponseField>
+
+**Example:**
+```java
+// Count users active in last 5 minutes
+int recentUsers = sessionManager.getActiveUserCount(300);
+
+// Count users active in last hour
+int hourlyUsers = sessionManager.getActiveUserCount(3600);
+
+System.out.println("Active users (5 min): " + recentUsers);
+System.out.println("Active users (1 hour): " + hourlyUsers);
+```
+
+---
+
+## Session Object
+
+The `Session` interface provides access to session information:
+
+```java
+Session session = sessionManager.getCurrentSession();
+
+// Identity
+String id = session.getId();
+String userId = session.getUserId();
+session.setUserId(userId);
+
+// Active status
+boolean active = session.getActive();
+session.setActive(true);
+
+// Timing
+long creationTime = session.getCreationTime();
+long lastAccessedTime = session.getLastAccessedTime();
+int maxInactiveInterval = session.getMaxInactiveInterval();
+session.setMaxInactiveInterval(3600); // seconds
+
+// Attributes
+Object value = session.getAttribute("key");
+session.setAttribute("key", valueObject);
+session.removeAttribute("key");
+Enumeration<String> names = session.getAttributeNames();
+
+// Invalidation
+session.invalidate();
+
+// User properties
+String userEid = session.getUserEid();
+```
+
+## ToolSession Object
+
+The `ToolSession` interface provides tool-specific session storage:
+
+```java
+ToolSession toolSession = sessionManager.getCurrentToolSession();
+
+// Identity
+String id = toolSession.getId();
+String placementId = toolSession.getPlacementId();
+
+// Attributes (tool-specific state)
+toolSession.setAttribute("wizardStep", 2);
+Integer step = (Integer) toolSession.getAttribute("wizardStep");
+
+// Clear all attributes
+toolSession.clearAttributes();
+
+// Attribute names
+Enumeration<String> names = toolSession.getAttributeNames();
+```
+
+## Common Use Cases
+
+### Authentication Flow
+
+```java
+// After successful authentication
+Session session = sessionManager.getCurrentSession();
+session.setUserId(authenticatedUserId);
+session.setUserEid(userEid);
+
+// Optionally set additional attributes
+session.setAttribute("loginTime", new Date());
+session.setAttribute("loginIP", request.getRemoteAddr());
+```
+
+### Checking Authentication
+
+```java
+public boolean isUserAuthenticated() {
+    String userId = sessionManager.getCurrentSessionUserId();
+    return userId != null && !userId.equals("anon");
+}
+
+public User getCurrentUser() {
+    String userId = sessionManager.getCurrentSessionUserId();
+    if (userId != null) {
+        try {
+            return userDirectoryService.getUser(userId);
+        } catch (UserNotDefinedException e) {
+            return null;
+        }
+    }
+    return null;
+}
+```
+
+### Session Attribute Management
+
+```java
+// Store complex objects in session
+Session session = sessionManager.getCurrentSession();
+
+// Store shopping cart
+ShoppingCart cart = new ShoppingCart();
+session.setAttribute("cart", cart);
+
+// Retrieve shopping cart
+ShoppingCart cart = (ShoppingCart) session.getAttribute("cart");
+if (cart == null) {
+    cart = new ShoppingCart();
+    session.setAttribute("cart", cart);
+}
+
+// Remove when done
+session.removeAttribute("cart");
+```
+
+### Tool State Management
+
+```java
+// Multi-step wizard in a tool
+ToolSession toolSession = sessionManager.getCurrentToolSession();
+
+// Initialize wizard
+toolSession.setAttribute("currentStep", 1);
+toolSession.setAttribute("wizardData", new WizardData());
+
+// Advance to next step
+Integer step = (Integer) toolSession.getAttribute("currentStep");
+toolSession.setAttribute("currentStep", step + 1);
+
+// Complete wizard - clear tool session
+toolSession.clearAttributes();
+```
+
+### Monitoring Active Users
+
+```java
+public Map<String, Object> getSystemStatus() {
+    Map<String, Object> status = new HashMap<>();
+    
+    // Total active sessions
+    int totalSessions = sessionManager.getSessions().size();
+    
+    // Recent activity
+    int last5Min = sessionManager.getActiveUserCount(300);
+    int last15Min = sessionManager.getActiveUserCount(900);
+    int lastHour = sessionManager.getActiveUserCount(3600);
+    
+    status.put("totalSessions", totalSessions);
+    status.put("activeUsers5Min", last5Min);
+    status.put("activeUsers15Min", last15Min);
+    status.put("activeUsersHour", lastHour);
+    
+    return status;
+}
+```
+
+### Session Cleanup in Filters
+
+```java
+public class SakaiSessionFilter implements Filter {
+    
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, 
+                        FilterChain chain) throws IOException, ServletException {
+        try {
+            // Establish session context
+            Session session = getOrCreateSession(request);
+            sessionManager.setCurrentSession(session);
+            
+            // Process request
+            chain.doFilter(request, response);
+            
+        } finally {
+            // Clean up thread-local
+            sessionManager.setCurrentSession(null);
+        }
+    }
+    
+    private Session getOrCreateSession(ServletRequest request) {
+        // Get session ID from cookie/header
+        String sessionId = extractSessionId(request);
+        
+        Session session = sessionManager.getSession(sessionId);
+        if (session == null) {
+            session = sessionManager.startSession();
+        }
+        
+        return session;
+    }
+}
+```
+
+## Session Lifecycle
+
+1. **Creation**: Session created via `startSession()`
+2. **Binding**: Session bound to thread via `setCurrentSession()`
+3. **Usage**: Session accessed via `getCurrentSession()`
+4. **Authentication**: User ID set via `session.setUserId()`
+5. **Access**: Session updated on each request (last accessed time)
+6. **Timeout**: Session invalidated after max inactive interval
+7. **Invalidation**: Session explicitly invalidated via `session.invalidate()`
+8. **Cleanup**: Thread-local cleared at end of request
+
+## Best Practices
+
+1. **Always clear thread-local**: Use try-finally to ensure `setCurrentSession(null)` is called
+2. **Minimize session storage**: Store only necessary data in sessions
+3. **Use tool sessions for tool state**: Keep tool-specific data in ToolSession
+4. **Check for null**: Always check if `getCurrentSessionUserId()` returns null
+5. **Don't store large objects**: Sessions should be lightweight
+6. **Clean up on logout**: Remove sensitive attributes when user logs out
+7. **Use appropriate timeouts**: Set `maxInactiveInterval` based on security requirements
+
+## See Also
+
+- [UserDirectoryService API](/api/kernel/user-directory) - User authentication and information
+- [AuthzGroupService API](/api/kernel/authz-service) - Authorization and permissions
+- [SiteService API](/api/kernel/site-service) - Site context

@@ -1,0 +1,596 @@
+---
+title: Database Setup
+description: Configure and optimize databases for Sakai LMS including MySQL, MariaDB, and Oracle
+---
+
+# Database Setup
+
+Sakai requires a relational database for storing system data, user information, and content metadata. This guide covers setup and configuration for supported databases.
+
+## Supported Databases
+
+Sakai officially supports:
+
+- **MariaDB** 10.x (Recommended)
+- **MySQL** 8.x
+- **Oracle** 12c and later
+- **HSQLDB** (Development/testing only)
+
+<Warning>
+HSQLDB is suitable only for development and testing. Never use it in production environments.
+</Warning>
+
+## MariaDB Setup (Recommended)
+
+MariaDB is the recommended database for Sakai due to its performance, reliability, and open-source nature.
+
+### Installation
+
+<Steps>
+
+<Step title="Install MariaDB Server">
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install mariadb-server mariadb-client
+```
+
+On RHEL/CentOS:
+
+```bash
+sudo yum install mariadb-server mariadb
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+```
+
+</Step>
+
+<Step title="Secure MariaDB Installation">
+
+Run the security script:
+
+```bash
+sudo mysql_secure_installation
+```
+
+Follow prompts to:
+- Set root password
+- Remove anonymous users
+- Disallow root login remotely
+- Remove test database
+
+</Step>
+
+<Step title="Configure MariaDB">
+
+Edit `/etc/mysql/mariadb.conf.d/50-server.cnf` (Ubuntu) or `/etc/my.cnf` (RHEL):
+
+```ini
+[mysqld]
+# Character set configuration
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+
+# Case-insensitive table names (required for Sakai)
+lower_case_table_names=1
+
+# Performance tuning
+max_allowed_packet=64M
+innodb_buffer_pool_size=1G
+innodb_log_file_size=256M
+innodb_flush_log_at_trx_commit=2
+
+# Connection settings
+max_connections=200
+wait_timeout=600
+
+# Binary logging (for replication/backup)
+log_bin=mysql-bin
+binlog_format=ROW
+expire_logs_days=7
+```
+
+Restart MariaDB:
+
+```bash
+sudo systemctl restart mariadb
+```
+
+</Step>
+
+<Step title="Create Sakai Database">
+
+Connect to MariaDB:
+
+```bash
+mysql -u root -p
+```
+
+Create database and user:
+
+```sql
+-- Create database
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create user and grant privileges
+CREATE USER 'sakai'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD_HERE';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+
+-- For remote connections (adjust hostname as needed)
+CREATE USER 'sakai'@'%' IDENTIFIED BY 'STRONG_PASSWORD_HERE';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'%';
+
+FLUSH PRIVILEGES;
+```
+
+</Step>
+
+<Step title="Verify Database Creation">
+
+Confirm the database exists:
+
+```sql
+SHOW DATABASES;
+USE sakai;
+SHOW TABLES;
+```
+
+Initially, the tables list will be empty. Sakai creates tables on first startup.
+
+</Step>
+
+</Steps>
+
+### MariaDB Configuration in Sakai
+
+Add to `sakai.properties`:
+
+```properties
+# MariaDB Configuration
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=org.mariadb.jdbc.Driver
+hibernate.dialect=org.hibernate.dialect.MariaDBDialect
+url@javax.sql.BaseDataSource=jdbc:mariadb://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+validationQuery@javax.sql.BaseDataSource=
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+# Database credentials
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=STRONG_PASSWORD_HERE
+
+# Auto-create schema on first startup
+auto.ddl=true
+```
+
+## MySQL 8 Setup
+
+MySQL 8.x is also well-supported by Sakai.
+
+### Installation
+
+<Steps>
+
+<Step title="Install MySQL Server">
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install mysql-server
+```
+
+On RHEL/CentOS:
+
+```bash
+sudo yum install mysql-server
+sudo systemctl start mysqld
+sudo systemctl enable mysqld
+```
+
+</Step>
+
+<Step title="Secure MySQL Installation">
+
+```bash
+sudo mysql_secure_installation
+```
+
+</Step>
+
+<Step title="Configure MySQL">
+
+Edit `/etc/mysql/mysql.conf.d/mysqld.cnf`:
+
+```ini
+[mysqld]
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+lower_case_table_names=1
+
+max_allowed_packet=64M
+innodb_buffer_pool_size=1G
+max_connections=200
+
+# MySQL 8 specific
+default_authentication_plugin=mysql_native_password
+```
+
+Restart MySQL:
+
+```bash
+sudo systemctl restart mysql
+```
+
+</Step>
+
+<Step title="Create Database">
+
+```sql
+CREATE DATABASE sakai DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'sakai'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD_HERE';
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+</Step>
+
+</Steps>
+
+### MySQL 8 Configuration in Sakai
+
+```properties
+# MySQL 8 Configuration
+vendor@org.sakaiproject.db.api.SqlService=mysql
+driverClassName@javax.sql.BaseDataSource=com.mysql.jdbc.Driver
+hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+url@javax.sql.BaseDataSource=jdbc:mysql://localhost:3306/sakai?useUnicode=true&characterEncoding=UTF-8
+validationQuery@javax.sql.BaseDataSource=
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=STRONG_PASSWORD_HERE
+
+auto.ddl=true
+```
+
+## Oracle Database Setup
+
+For enterprise deployments using Oracle.
+
+### Prerequisites
+
+- Oracle Database 12c or later
+- Oracle JDBC driver (ojdbc8.jar or later)
+
+### Database Configuration
+
+<Steps>
+
+<Step title="Create Tablespace">
+
+Connect as SYSDBA:
+
+```sql
+CREATE TABLESPACE sakai_data
+  DATAFILE '/u01/app/oracle/oradata/sakai_data01.dbf'
+  SIZE 1G
+  AUTOEXTEND ON
+  NEXT 100M
+  MAXSIZE UNLIMITED;
+
+CREATE TEMPORARY TABLESPACE sakai_temp
+  TEMPFILE '/u01/app/oracle/oradata/sakai_temp01.dbf'
+  SIZE 512M
+  AUTOEXTEND ON;
+```
+
+</Step>
+
+<Step title="Create User">
+
+```sql
+CREATE USER sakai
+  IDENTIFIED BY STRONG_PASSWORD_HERE
+  DEFAULT TABLESPACE sakai_data
+  TEMPORARY TABLESPACE sakai_temp
+  QUOTA UNLIMITED ON sakai_data;
+
+GRANT CONNECT, RESOURCE TO sakai;
+GRANT CREATE SESSION TO sakai;
+GRANT CREATE TABLE TO sakai;
+GRANT CREATE SEQUENCE TO sakai;
+GRANT CREATE VIEW TO sakai;
+GRANT CREATE TRIGGER TO sakai;
+```
+
+</Step>
+
+<Step title="Install JDBC Driver">
+
+Copy Oracle JDBC driver to Tomcat:
+
+```bash
+cp ojdbc8.jar /opt/tomcat9/lib/
+```
+
+</Step>
+
+</Steps>
+
+### Oracle Configuration in Sakai
+
+```properties
+# Oracle Configuration
+vendor@org.sakaiproject.db.api.SqlService=oracle
+driverClassName@javax.sql.BaseDataSource=oracle.jdbc.OracleDriver
+hibernate.dialect=org.hibernate.dialect.Oracle10gDialect
+url@javax.sql.BaseDataSource=jdbc:oracle:thin:@oracle.example.edu:1521:ORCL
+validationQuery@javax.sql.BaseDataSource=select 1 from DUAL
+defaultTransactionIsolationString@javax.sql.BaseDataSource=TRANSACTION_READ_COMMITTED
+testOnBorrow@javax.sql.BaseDataSource=false
+
+username@javax.sql.BaseDataSource=sakai
+password@javax.sql.BaseDataSource=STRONG_PASSWORD_HERE
+
+auto.ddl=true
+```
+
+## Docker Database Setup
+
+For development or containerized deployments.
+
+### MariaDB Docker Container
+
+```bash
+docker run -d \
+  --name sakai-mariadb \
+  -p 3306:3306 \
+  -e MARIADB_ROOT_PASSWORD=rootpass \
+  -e MARIADB_DATABASE=sakai \
+  -e MARIADB_USER=sakai \
+  -e MARIADB_PASSWORD=sakaipass \
+  -v mariadb-data:/var/lib/mysql \
+  mariadb:10 \
+  --character-set-server=utf8mb4 \
+  --collation-server=utf8mb4_unicode_ci \
+  --lower-case-table-names=1
+```
+
+### Initialize Database with Script
+
+Create `init.sql`:
+
+```sql
+CREATE DATABASE IF NOT EXISTS sakai DEFAULT CHARACTER SET utf8mb4;
+GRANT ALL ON sakai.* TO 'sakai'@'%' IDENTIFIED BY 'sakaipass';
+```
+
+Mount as init script:
+
+```bash
+docker run -d \
+  --name sakai-mariadb \
+  -p 3306:3306 \
+  -e MARIADB_ROOT_PASSWORD=rootpass \
+  -v ./init.sql:/docker-entrypoint-initdb.d/init.sql \
+  -v mariadb-data:/var/lib/mysql \
+  mariadb:10 --lower-case-table-names=1
+```
+
+## Database Optimization
+
+### Performance Tuning for MariaDB/MySQL
+
+```ini
+# Increase buffer pool (set to 70-80% of available RAM)
+innodb_buffer_pool_size=4G
+
+# Optimize log files
+innodb_log_file_size=512M
+innodb_log_buffer_size=16M
+
+# Flush optimization
+innodb_flush_log_at_trx_commit=2
+innodb_flush_method=O_DIRECT
+
+# Query cache (MySQL 5.7 and earlier)
+query_cache_type=1
+query_cache_size=64M
+
+# Connection pooling
+max_connections=500
+thread_cache_size=50
+
+# Table cache
+table_open_cache=4000
+table_definition_cache=2000
+```
+
+### Index Optimization
+
+Monitor slow queries:
+
+```sql
+-- Enable slow query log
+SET GLOBAL slow_query_log = 'ON';
+SET GLOBAL long_query_time = 2;
+
+-- Review slow queries
+SELECT * FROM mysql.slow_log ORDER BY query_time DESC LIMIT 10;
+```
+
+### Table Maintenance
+
+Regular maintenance commands:
+
+```sql
+-- Analyze tables
+ANALYZE TABLE sakai_table_name;
+
+-- Optimize tables
+OPTIMIZE TABLE sakai_table_name;
+
+-- Check table integrity
+CHECK TABLE sakai_table_name;
+```
+
+## Backup and Recovery
+
+### Automated Backup Script
+
+Create `/usr/local/bin/backup-sakai-db.sh`:
+
+```bash
+#!/bin/bash
+
+BACKUP_DIR="/var/backups/sakai"
+DATE=$(date +%Y%m%d_%H%M%S)
+DB_NAME="sakai"
+DB_USER="sakai"
+DB_PASS="YOUR_PASSWORD"
+
+mkdir -p $BACKUP_DIR
+
+# Dump database
+mysqldump -u $DB_USER -p$DB_PASS \
+  --single-transaction \
+  --routines \
+  --triggers \
+  $DB_NAME | gzip > $BACKUP_DIR/sakai_$DATE.sql.gz
+
+# Keep only last 30 days
+find $BACKUP_DIR -name "sakai_*.sql.gz" -mtime +30 -delete
+
+echo "Backup completed: sakai_$DATE.sql.gz"
+```
+
+Make executable and schedule:
+
+```bash
+chmod +x /usr/local/bin/backup-sakai-db.sh
+
+# Add to crontab (daily at 2 AM)
+crontab -e
+0 2 * * * /usr/local/bin/backup-sakai-db.sh
+```
+
+### Restore from Backup
+
+```bash
+# Decompress and restore
+gunzip < /var/backups/sakai/sakai_20260304_020000.sql.gz | \
+  mysql -u sakai -p sakai
+```
+
+## Monitoring Database Health
+
+### Key Metrics to Monitor
+
+```sql
+-- Connection statistics
+SHOW STATUS LIKE 'Threads_connected';
+SHOW STATUS LIKE 'Max_used_connections';
+
+-- InnoDB buffer pool usage
+SHOW STATUS LIKE 'Innodb_buffer_pool%';
+
+-- Table sizes
+SELECT 
+    table_name,
+    ROUND(((data_length + index_length) / 1024 / 1024), 2) AS "Size (MB)"
+FROM information_schema.TABLES
+WHERE table_schema = 'sakai'
+ORDER BY (data_length + index_length) DESC
+LIMIT 20;
+
+-- Event table size check
+SELECT COUNT(*) FROM SAKAI_EVENT;
+```
+
+### Event Table Management
+
+The `SAKAI_EVENT` table can grow large. Archive old events:
+
+```sql
+-- Archive events older than 1 year
+CREATE TABLE SAKAI_EVENT_ARCHIVE AS 
+SELECT * FROM SAKAI_EVENT 
+WHERE EVENT_DATE < DATE_SUB(NOW(), INTERVAL 1 YEAR);
+
+-- Delete archived events
+DELETE FROM SAKAI_EVENT 
+WHERE EVENT_DATE < DATE_SUB(NOW(), INTERVAL 1 YEAR);
+
+-- Optimize table
+OPTIMIZE TABLE SAKAI_EVENT;
+```
+
+<Warning>
+Always backup before performing bulk deletes or table modifications.
+</Warning>
+
+## Troubleshooting
+
+### Connection Issues
+
+**Problem**: "Too many connections"
+
+```sql
+-- Increase max connections
+SET GLOBAL max_connections = 500;
+
+-- Make permanent in my.cnf
+max_connections=500
+```
+
+**Problem**: "Access denied"
+
+Check user privileges:
+
+```sql
+SHOW GRANTS FOR 'sakai'@'localhost';
+
+-- Re-grant if needed
+GRANT ALL PRIVILEGES ON sakai.* TO 'sakai'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### Performance Issues
+
+**Problem**: Slow queries
+
+Enable and review slow query log:
+
+```ini
+[mysqld]
+slow_query_log=1
+long_query_time=2
+slow_query_log_file=/var/log/mysql/slow.log
+```
+
+**Problem**: High memory usage
+
+Adjust buffer pool:
+
+```ini
+innodb_buffer_pool_size=2G  # Reduce if needed
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure database properties in Sakai
+  </Card>
+  <Card title="Security" icon="shield" href="/admin/security">
+    Secure your database connections
+  </Card>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Set up user accounts
+  </Card>
+  <Card title="Deployment" icon="server" href="/admin/deployment">
+    Complete deployment setup
+  </Card>
+</CardGroup>

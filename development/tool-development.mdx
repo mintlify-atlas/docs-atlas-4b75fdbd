@@ -1,0 +1,394 @@
+---
+title: Tool Development
+description: Develop custom tools and modules for Sakai LMS
+---
+
+## Tool Structure
+
+A Sakai tool typically consists of multiple Maven modules:
+
+```
+tool-name/
+├── api/              # Service interfaces and models
+├── impl/             # Service implementations
+├── hbm/              # Hibernate mappings (if needed)
+├── tool/             # Web application (UI)
+└── pom.xml           # Parent POM
+```
+
+### Module Responsibilities
+
+- **api**: Defines service interfaces, data models, and constants
+- **impl**: Contains service implementations and business logic
+- **hbm**: Hibernate mapping files for database entities
+- **tool**: Web UI layer (JSF, Wicket, ThymeLeaf, or web components)
+
+## Technology Stack
+
+### Backend Frameworks
+
+Sakai uses multiple Java frameworks from different development eras:
+
+<CardGroup cols={2}>
+  <Card title="Spring Framework" icon="leaf">
+    Dependency injection, MVC, and core services. **Crucial** for all development.
+  </Card>
+  <Card title="Hibernate ORM" icon="database">
+    Database interactions and persistence. **Critical** for data access.
+  </Card>
+  <Card title="ThymeLeaf" icon="file-code">
+    **Preferred** template engine for new tool development.
+  </Card>
+  <Card title="JSF 2.3" icon="code">
+    JavaServer Faces - used in many existing tools.
+  </Card>
+</CardGroup>
+
+<Info>
+  For new tools, prefer **Spring MVC/Boot** with **Hibernate** and **ThymeLeaf**.
+</Info>
+
+### Legacy Frameworks
+
+- **Apache Velocity**: Used in older parts of the codebase
+- **Wicket**: Component-based web framework used in several tools
+- **RSF (Reasonable Server Faces)**: Avoid for new development
+
+### UI Framework
+
+- **Bootstrap 5.2**: Preferred UI framework for styling
+- **Responsive Design**: All UI must work across different screen sizes
+- **Web Components**: Strategic direction for frontend (see [Web Components Guide](./web-components))
+
+## Kernel Services
+
+The Kernel provides core services that all tools should use:
+
+### Service Location
+
+Access Kernel services using the Component Manager:
+
+```java
+import org.sakaiproject.component.cover.ComponentManager;
+import org.sakaiproject.user.api.UserDirectoryService;
+
+// Get service instance
+UserDirectoryService userService = 
+    (UserDirectoryService) ComponentManager.get(UserDirectoryService.class);
+```
+
+### Core Services
+
+<AccordionGroup>
+  <Accordion title="User Management">
+    Services for fetching and managing User objects:
+
+    ```java
+    import org.sakaiproject.user.api.UserDirectoryService;
+    import org.sakaiproject.user.api.User;
+
+    UserDirectoryService userService = 
+        (UserDirectoryService) ComponentManager.get(UserDirectoryService.class);
+    
+    User currentUser = userService.getCurrentUser();
+    String userId = currentUser.getId();
+    String displayName = currentUser.getDisplayName();
+    ```
+  </Accordion>
+
+  <Accordion title="Session Management">
+    Handle user sessions:
+
+    ```java
+    import org.sakaiproject.tool.api.SessionManager;
+    import org.sakaiproject.tool.api.Session;
+
+    SessionManager sessionManager = 
+        (SessionManager) ComponentManager.get(SessionManager.class);
+    
+    Session session = sessionManager.getCurrentSession();
+    String sessionId = session.getId();
+    ```
+  </Accordion>
+
+  <Accordion title="Authorization & Security">
+    Check permissions and security:
+
+    ```java
+    import org.sakaiproject.authz.api.SecurityService;
+
+    SecurityService securityService = 
+        (SecurityService) ComponentManager.get(SecurityService.class);
+    
+    boolean canEdit = securityService.unlock(
+        "site.upd", "/site/" + siteId
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Email Service">
+    Send emails through Sakai:
+
+    ```java
+    import org.sakaiproject.email.api.EmailService;
+
+    EmailService emailService = 
+        (EmailService) ComponentManager.get(EmailService.class);
+    
+    emailService.send(
+        "from@example.com",
+        "to@example.com",
+        "Subject",
+        "Body",
+        null,  // headers
+        null,  // attachments
+        null   // additional recipients
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Content Hosting">
+    File and resource management:
+
+    ```java
+    import org.sakaiproject.content.api.ContentHostingService;
+    import org.sakaiproject.content.api.ContentResource;
+
+    ContentHostingService contentService = 
+        (ContentHostingService) ComponentManager.get(ContentHostingService.class);
+    
+    ContentResource resource = contentService.getResource(resourceId);
+    byte[] content = resource.getContent();
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  New core services should be added to the **Kernel**, not to individual tools.
+</Warning>
+
+## Creating a New Tool
+
+<Steps>
+  <Step title="Create Maven module structure">
+    ```bash
+    mkdir -p my-tool/{api,impl,tool}/src/main/java
+    mkdir -p my-tool/tool/src/main/webapp
+    ```
+  </Step>
+
+  <Step title="Create parent POM">
+    Create `my-tool/pom.xml`:
+
+    ```xml
+    <project>
+      <modelVersion>4.0.0</modelVersion>
+      <parent>
+        <groupId>org.sakaiproject</groupId>
+        <artifactId>master</artifactId>
+        <version>26-SNAPSHOT</version>
+      </parent>
+      
+      <groupId>org.sakaiproject.mytool</groupId>
+      <artifactId>mytool-base</artifactId>
+      <packaging>pom</packaging>
+      
+      <modules>
+        <module>api</module>
+        <module>impl</module>
+        <module>tool</module>
+      </modules>
+    </project>
+    ```
+  </Step>
+
+  <Step title="Define API interfaces">
+    Create service interfaces in the `api` module:
+
+    ```java
+    package org.sakaiproject.mytool.api;
+
+    import java.util.List;
+
+    public interface MyToolService {
+        List<String> getData(String siteId);
+        void saveData(String siteId, String data);
+    }
+    ```
+  </Step>
+
+  <Step title="Implement service logic">
+    Create service implementation in `impl`:
+
+    ```java
+    package org.sakaiproject.mytool.impl;
+
+    import org.sakaiproject.mytool.api.MyToolService;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class MyToolServiceImpl implements MyToolService {
+        
+        @Override
+        public List<String> getData(String siteId) {
+            // Implementation
+            return new ArrayList<>();
+        }
+        
+        @Override
+        public void saveData(String siteId, String data) {
+            // Implementation
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Create Spring configuration">
+    Create `impl/src/main/resources/spring-config.xml`:
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:context="http://www.springframework.org/schema/context">
+           
+      <context:component-scan base-package="org.sakaiproject.mytool.impl" />
+    </beans>
+    ```
+  </Step>
+
+  <Step title="Build UI layer">
+    Create controllers and templates in the `tool` module using your chosen framework (ThymeLeaf, JSF, etc.).
+  </Step>
+</Steps>
+
+## Code Style Guidelines
+
+### Java Coding Standards
+
+<Warning>
+  **No `var` keyword**: Do not use local variable type inference. Always declare explicit types.
+
+  ```java
+  // CORRECT
+  List<String> names = new ArrayList<>();
+  
+  // WRONG - Will fail Checkstyle
+  var names = new ArrayList<String>();
+  ```
+
+  This is enforced by Checkstyle during `mvn validate`.
+</Warning>
+
+### General Guidelines
+
+- **Indentation**: Maintain consistent format (tabs/spaces) as in existing files
+- **kebab-case**: Use for HTML class and id attributes
+- **Internationalization**: All user-facing strings must support i18n
+- **Accessibility**: Follow WCAG 2.0 AA standards
+- **Minimal Changes**: Only modify lines needed for your fix/feature
+
+### JavaScript Standards
+
+- **Modern JavaScript**: Target ES2022+ features
+- **No jQuery**: Use modern DOM APIs instead
+- **Modular Code**: Use ES modules and Lit components
+- **No Global Variables**: Prefer module scope or class fields
+
+## Database Integration
+
+### Hibernate Entities
+
+Create JPA entities with Hibernate:
+
+```java
+import javax.persistence.*;
+import lombok.Data;
+
+@Entity
+@Table(name = "MY_TOOL_DATA")
+@Data
+public class MyToolData {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "ID")
+    private Long id;
+    
+    @Column(name = "SITE_ID", nullable = false)
+    private String siteId;
+    
+    @Column(name = "DATA_VALUE")
+    private String dataValue;
+    
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "CREATED_DATE")
+    private Date createdDate;
+}
+```
+
+### Repository Pattern
+
+```java
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface MyToolDataRepository 
+    extends JpaRepository<MyToolData, Long> {
+    
+    List<MyToolData> findBySiteId(String siteId);
+}
+```
+
+## Tool Registration
+
+Register your tool in `tool/src/webapp/tools/sakai.mytool.xml`:
+
+```xml
+<?xml version="1.0"?>
+<registration>
+    <tool
+        id="sakai.mytool"
+        title="My Tool"
+        description="Description of my tool">
+        
+        <configuration name="home" value="/" />
+        <configuration name="reset.button" value="true" />
+        
+        <category name="course" />
+        <category name="project" />
+    </tool>
+</registration>
+```
+
+## Internationalization
+
+Create resource bundles for multiple languages:
+
+```properties
+# mytool.properties (English)
+mytool.title=My Tool
+mytool.save=Save
+mytool.cancel=Cancel
+
+# mytool_es_ES.properties (Spanish)
+mytool.title=Mi Herramienta
+mytool.save=Guardar
+mytool.cancel=Cancelar
+```
+
+Access in Java:
+
+```java
+ResourceBundle rb = ResourceBundle.getBundle("mytool", locale);
+String title = rb.getString("mytool.title");
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web Components" icon="code" href="./web-components">
+    Build modern UI with Lit-based components
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="./testing">
+    Write comprehensive tests for your tool
+  </Card>
+</CardGroup>

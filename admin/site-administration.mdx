@@ -1,0 +1,692 @@
+---
+title: Site Administration
+description: Manage Sakai sites, pages, tools, and groups through administrative interfaces
+---
+
+# Site Administration
+
+Sakai organizes content and tools into sites (also called workspaces). This guide covers administrative site management capabilities.
+
+## Understanding Sites
+
+Sites are the primary organizational unit in Sakai.
+
+### Site Types
+
+**Course Sites**: Academic course workspaces
+- Structured by term/semester
+- Include gradebook, assignments, resources
+- Linked to course management systems
+
+**Project Sites**: Collaboration workspaces
+- Department projects
+- Research collaboration
+- Committee workspaces
+
+**Portfolio Sites**: Student portfolio sites
+- Personal showcase spaces
+- Controlled by individual users
+
+**User Sites**: Personal workspaces (My Workspace)
+- One per user
+- Site ID pattern: `~userid`
+
+### Site Structure
+
+Each site contains:
+- **Pages**: Navigation tabs
+- **Tools**: Functional applications (Assignments, Resources, etc.)
+- **Groups**: Subsets of participants
+- **Roles**: Permission sets (Instructor, Student, etc.)
+
+## Sites Tool
+
+The Sites administrative tool provides full site management capabilities.
+
+### Accessing Sites Tool
+
+1. Log in as administrator
+2. Navigate to **Administration Workspace**
+3. Click **Sites** tool
+
+## Creating Sites
+
+<Steps>
+
+<Step title="Start Site Creation">
+
+In the Sites tool:
+1. Click **New Site**
+2. Enter site details
+
+</Step>
+
+<Step title="Configure Basic Information">
+
+Required fields:
+- **Site ID**: Unique identifier (cannot be changed)
+- **Title**: Display name
+- **Type**: course, project, portfolio, etc.
+- **Description**: Site purpose/description
+- **Short Description**: Brief summary
+
+</Step>
+
+<Step title="Set Site Properties">
+
+Optional settings:
+- **Skin**: Visual theme
+- **Published**: Make site visible to participants
+- **Joinable**: Allow users to self-join
+- **Public**: Allow anonymous access
+- **Join Role**: Default role for joiners
+
+</Step>
+
+<Step title="Add Pages and Tools">
+
+1. Click **Pages** tab
+2. Click **New Page**
+3. Enter page title
+4. Add tools to the page
+5. Configure tool properties
+
+</Step>
+
+<Step title="Add Participants">
+
+1. Click **Add Participants**
+2. Search for users
+3. Assign roles
+4. Click **Save**
+
+</Step>
+
+</Steps>
+
+### Site ID Conventions
+
+Recommended patterns:
+
+```
+# Course sites
+CSCI-101-F2026
+MATH-201-Spring-2026
+
+# Project sites
+project-faculty-senate
+research-climate-change
+
+# User sites (automatic)
+~jsmith
+~mjones
+```
+
+## Editing Sites
+
+### Modify Site Information
+
+<Steps>
+
+<Step title="Find Site">
+
+1. Search in Sites tool by ID, title, or type
+2. Click on site to view details
+
+</Step>
+
+<Step title="Edit Properties">
+
+Click **Edit** to modify:
+- Title and descriptions
+- Skin
+- Published status
+- Joinable settings
+- Public view setting
+
+</Step>
+
+<Step title="Save Changes">
+
+Click **Save** to apply changes.
+
+</Step>
+
+</Steps>
+
+<Warning>
+Site IDs cannot be changed after creation. To change a site ID, you must create a new site and migrate content.
+</Warning>
+
+## Managing Pages
+
+Pages provide navigation structure within sites.
+
+### Adding Pages
+
+<Steps>
+
+<Step title="Access Pages Tab">
+
+In site editor, click **Pages** tab
+
+</Step>
+
+<Step title="Create New Page">
+
+1. Click **New Page**
+2. Enter page title
+3. Select page layout (single column, multi-column)
+4. Click **Save**
+
+</Step>
+
+<Step title="Add Tools to Page">
+
+1. Click **Edit Page**
+2. Click **New Tool**
+3. Select tool from list
+4. Configure tool properties
+5. Click **Save**
+
+</Step>
+
+</Steps>
+
+### Page Properties
+
+**Title**: Display name in navigation
+
+**Layout**: Visual arrangement
+- Single column
+- Two columns
+- Three columns
+- Custom layouts
+
+**Popup**: Open page in popup window
+
+**Custom URL**: Link to external content
+
+### Reordering Pages
+
+Change page order in navigation:
+1. In Pages list, use drag-and-drop
+2. Or use up/down arrows
+3. Changes save automatically
+
+### Deleting Pages
+
+1. Select page to delete
+2. Click **Remove Page**
+3. Confirm deletion
+
+<Warning>
+Deleting a page removes all tools on that page. This cannot be undone.
+</Warning>
+
+## Managing Tools
+
+Tools provide functionality within sites.
+
+### Available Tools
+
+**Content Tools**:
+- Resources - File sharing
+- Lessons - Structured learning modules
+- Web Content - External content embedding
+
+**Communication Tools**:
+- Announcements
+- Messages (email archive)
+- Chat
+- Forums
+
+**Assessment Tools**:
+- Assignments
+- Tests & Quizzes
+- Gradebook
+
+**Collaboration Tools**:
+- Calendar
+- Schedule
+- Roster
+- Site Info
+
+### Adding Tools
+
+<Steps>
+
+<Step title="Edit Page">
+
+1. Navigate to site → Pages
+2. Select page or create new page
+3. Click **Edit Page**
+
+</Step>
+
+<Step title="Add Tool">
+
+1. Click **New Tool**
+2. Select tool from list
+3. Configure tool settings:
+   - Tool title
+   - Special configuration
+   - Properties
+
+</Step>
+
+<Step title="Save Tool">
+
+Click **Save** to add tool to page
+
+</Step>
+
+</Steps>
+
+### Tool Configuration
+
+Many tools have configurable properties:
+
+**Resources Tool**:
+- Default view (list, details)
+- Upload quota
+- File type restrictions
+
+**Assignments Tool**:
+- Student submission notifications
+- Resubmission options
+- Grade options
+
+**Gradebook Tool**:
+- Grade entry type (points, percentages, letters)
+- Category weighting
+- Extra credit
+
+### Tool Permissions
+
+Control which roles can access tool functions:
+
+1. Click **Permissions** in tool config
+2. Check/uncheck permissions per role
+3. Click **Save**
+
+Example permissions:
+- `annc.new` - Create announcements
+- `content.new` - Upload files
+- `asn.submit` - Submit assignments
+- `gradebook.gradeAll` - Grade all students
+
+## Managing Groups
+
+Groups divide site participants for targeted activities.
+
+### Creating Groups
+
+<Steps>
+
+<Step title="Access Groups">
+
+In site editor:
+1. Click **Groups** tab
+2. Click **New Group**
+
+</Step>
+
+<Step title="Configure Group">
+
+- **Group Title**: Display name
+- **Description**: Group purpose
+- **Membership**: Select users to include
+
+</Step>
+
+<Step title="Save Group">
+
+Click **Save** to create group
+
+</Step>
+
+</Steps>
+
+### Group Use Cases
+
+- **Lab Sections**: Divide large courses
+- **Project Teams**: Collaborative assignments
+- **Discussion Groups**: Targeted forums
+- **TA Assignment**: Assign TAs to specific students
+
+### Group-Aware Tools
+
+These tools can filter by group:
+- Announcements
+- Assignments
+- Forums
+- Calendar
+- Resources
+- Gradebook
+
+## Site Templates
+
+Templates provide starting configurations for new sites.
+
+### Using Site Templates
+
+1. Create a site with desired configuration
+2. In Sites tool, select the site
+3. Click **Save As Template**
+4. Name the template
+5. When creating new sites, select the template
+
+### Built-in Templates
+
+Sakai includes default templates:
+- `!site.template.course` - Course site template
+- `!site.template.portfolio` - Portfolio template
+- `!site.template` - Basic site template
+
+### Customizing Templates
+
+<Steps>
+
+<Step title="Access Realms Tool">
+
+In Administration Workspace, click **Realms**
+
+</Step>
+
+<Step title="Edit Template Realm">
+
+1. Search for template (e.g., `!site.template.course`)
+2. Click to edit
+
+</Step>
+
+<Step title="Modify Roles and Permissions">
+
+- Add/remove roles
+- Adjust permissions
+- Set default role
+
+</Step>
+
+<Step title="Save Template">
+
+Click **Save** - affects all new sites using this template
+
+</Step>
+
+</Steps>
+
+<Warning>
+Template changes only affect new sites. Existing sites must be updated individually.
+</Warning>
+
+## Batch Site Operations
+
+Perform operations on multiple sites.
+
+### Batch Site Creation
+
+Create multiple sites from CSV:
+
+```csv
+siteid,title,type,term,description
+CSCI-101-F26,Intro to CS,course,Fall 2026,Introduction to Computer Science
+MATH-201-F26,Calculus II,course,Fall 2026,Calculus II
+ENGL-110-F26,English Comp,course,Fall 2026,English Composition
+```
+
+### Archive Multiple Sites
+
+<Steps>
+
+<Step title="Access Archive Tool">
+
+In Administration Workspace, click **Site Archive**
+
+</Step>
+
+<Step title="Select Sites">
+
+1. Search for sites by term or pattern
+2. Select multiple sites
+3. Click **Archive Selected**
+
+</Step>
+
+<Step title="Download Archives">
+
+Archive files saved to:
+```
+${sakai.home}/archive/
+```
+
+</Step>
+
+</Steps>
+
+### Batch Import
+
+Import archived content into sites:
+
+1. Upload archive files
+2. Select target sites
+3. Choose content to import
+4. Execute import
+
+## Site Properties and Metadata
+
+### Common Properties
+
+```properties
+# Site properties (accessible via Site Info)
+term=Fall 2026
+term_eid=F26
+contact-name=John Smith
+contact-email=jsmith@example.edu
+site-request-course-sections=CSCI-101-001,CSCI-101-002
+```
+
+### Custom Properties
+
+Add custom properties for institutional needs:
+
+```java
+Site site = siteService.getSite(siteId);
+ResourcePropertiesEdit props = site.getPropertiesEdit();
+props.addProperty("custom-property", "value");
+siteService.save(site);
+```
+
+## Site Quotas
+
+Manage storage quotas for sites.
+
+### Setting Quotas
+
+Configure in `sakai.properties`:
+
+```properties
+# Default site quota (MB)
+content.quota=500
+
+# Quota by site type
+content.quota.course=1000
+content.quota.project=500
+content.quota.portfolio=250
+```
+
+### Per-Site Quota Override
+
+1. Edit site in Sites tool
+2. Click **Properties**
+3. Set `CONTENT_QUOTA` property
+4. Value in MB
+
+## Soft Deletion
+
+Sakai supports soft deletion for site recovery.
+
+### Enable Soft Deletion
+
+```properties
+# Enable soft delete
+site.soft.deletion=true
+
+# Days to keep soft-deleted sites
+site.soft.deletion.gracetime=30
+```
+
+### Restore Deleted Sites
+
+1. In Sites tool, enable "Show deleted"
+2. Find soft-deleted site
+3. Click **Restore**
+4. Site restored with all content
+
+### Permanent Deletion
+
+After grace period:
+1. Sites automatically purged
+2. Or manually purge via Sites tool
+
+## Site Search and Filtering
+
+### Search Criteria
+
+- Site ID
+- Title
+- Type
+- Published status
+- Creation date
+- Modified date
+- Creator
+
+### Advanced Filters
+
+Combine multiple criteria:
+```
+Type: course
+Term: Fall 2026
+Published: Yes
+Created: Last 30 days
+```
+
+## Realm Management
+
+Realms control permissions and roles.
+
+### Realm Hierarchy
+
+```
+!site.template              (Base template)
+  └─ !site.template.course  (Course template)
+       └─ CSCI-101-F26      (Individual site)
+```
+
+### Editing Site Realms
+
+<Steps>
+
+<Step title="Access Realms Tool">
+
+Administration Workspace → **Realms**
+
+</Step>
+
+<Step title="Find Site Realm">
+
+Search for site ID (e.g., `CSCI-101-F26`)
+
+</Step>
+
+<Step title="Edit Permissions">
+
+1. Select role
+2. Check/uncheck permissions
+3. Click **Save**
+
+</Step>
+
+</Steps>
+
+### Bulk Realm Updates
+
+Update permissions across multiple sites:
+
+1. Modify template realm
+2. Use realm update script
+3. Changes propagate to child realms
+
+## Best Practices
+
+### Site Organization
+
+- Use consistent naming conventions
+- Include term/year in course site IDs
+- Organize project sites by department
+- Document site creation policies
+
+### Performance
+
+- Limit number of tools per page
+- Archive old sites regularly
+- Delete unused sites
+- Monitor site quotas
+
+### Maintenance
+
+- Regular permission audits
+- Clean up orphaned groups
+- Review soft-deleted sites
+- Update templates as needed
+
+### User Experience
+
+- Consistent page layouts
+- Clear page titles
+- Logical tool organization
+- Minimize navigation depth
+
+## Troubleshooting
+
+### Cannot Access Site
+
+**Check:**
+- Site is published
+- User has site membership
+- User has appropriate role
+- No realm permission issues
+
+### Tool Not Visible
+
+**Check:**
+- Tool is on a page
+- Page is not hidden
+- Tool permissions for role
+- Tool is enabled globally
+
+### Slow Site Performance
+
+**Investigate:**
+- Large number of files in Resources
+- Heavy database queries
+- Too many tools on single page
+- Inadequate caching
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Manage users and roles
+  </Card>
+  <Card title="Security" icon="shield" href="/admin/security">
+    Configure site security
+  </Card>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Advanced configuration
+  </Card>
+  <Card title="Database Setup" icon="database" href="/admin/database-setup">
+    Database administration
+  </Card>
+</CardGroup>

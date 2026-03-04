@@ -1,0 +1,159 @@
+---
+title: Assignments
+description: Create, manage, and grade student assignments with comprehensive submission tracking and feedback tools
+---
+
+## Overview
+
+The Assignments tool enables instructors to create, distribute, and grade assignments while allowing students to submit their work online. With support for multiple submission types, peer review, and detailed grading workflows, the Assignments tool streamlines the entire assignment lifecycle.
+
+## Key Features
+
+### Assignment Creation
+
+Instructors can create assignments with flexible options:
+
+- **Multiple submission types**: Text, file attachments, both, or external tools
+- **Configurable due dates**: Set open, due, and accept-until dates
+- **Point-based grading**: Define maximum points and grading scales
+- **Group assignments**: Support for individual or group submissions
+- **Honor pledge**: Optional honor code acceptance before submission
+- **Peer review**: Enable anonymous peer assessment workflows
+
+### Submission Types
+
+The tool supports various submission formats:
+
+<Steps>
+  <Step title="Inline Text">
+    Students can type their responses directly using a rich text editor with formatting options
+  </Step>
+  <Step title="File Attachments">
+    Upload documents, images, or other files as assignment submissions
+  </Step>
+  <Step title="Combined">
+    Allow both inline text and file attachments in a single submission
+  </Step>
+  <Step title="External Tools">
+    Integrate with LTI tools for specialized submission types
+  </Step>
+</Steps>
+
+### Student Workflow
+
+Students experience a streamlined submission process:
+
+<Steps>
+  <Step title="View Assignment">
+    Access assignment details, instructions, and requirements from the Assignments tool
+  </Step>
+  <Step title="Prepare Submission">
+    Create content using the text editor or prepare files for upload
+  </Step>
+  <Step title="Submit Work">
+    Upload attachments and/or enter text, then click Submit to finalize
+  </Step>
+  <Step title="View Confirmation">
+    Receive confirmation with submission timestamp and ability to resubmit if allowed
+  </Step>
+</Steps>
+
+<Tip>
+  Students can save drafts before submitting. Draft submissions are visible only to the student until formally submitted.
+</Tip>
+
+### Grading Interface
+
+Instructors have powerful grading capabilities:
+
+- **Submission list view**: See all student submissions with status indicators
+- **Inline grading**: Grade directly within the interface
+- **Feedback comments**: Provide detailed text feedback for each submission
+- **Feedback attachments**: Upload files with grading rubrics or annotations
+- **Return to student**: Mark assignments as graded and release feedback
+- **Grade override**: Adjust grades after initial grading if needed
+
+### Assignment Properties
+
+Key configuration options available when creating assignments:
+
+| Property | Description |
+|----------|-------------|
+| Title | Assignment name visible to students |
+| Instructions | Detailed assignment description with formatting |
+| Open Date | When the assignment becomes visible |
+| Due Date | Deadline for on-time submissions |
+| Accept Until | Late submission cutoff date |
+| Points | Maximum points possible |
+| Submission Type | Text, attachments, both, or external |
+| Grade Scale | Points or pass/fail |
+| Honor Pledge | Require honor code acceptance |
+| Allow Resubmission | Let students resubmit after initial submission |
+
+<Note>
+  Assignments automatically integrate with the Gradebook. Grades entered in Assignments sync to the Gradebook in real-time.
+</Note>
+
+### Submission Tracking
+
+The tool provides comprehensive tracking:
+
+- **Submission status**: Not started, draft, submitted, graded, returned
+- **Timestamp tracking**: Records submission time and modification history
+- **Late submissions**: Automatic flagging of submissions after due date
+- **Resubmission log**: Complete history of all submission attempts
+- **Grade status**: Ungraded, in progress, graded, released
+
+### Bulk Operations
+
+Save time with bulk actions:
+
+- **Download all submissions**: Export all student work as a ZIP file
+- **Upload grades**: Import grades from spreadsheet
+- **Release grades**: Publish feedback to all students simultaneously
+- **Email notifications**: Notify students of grades or comments
+
+<Tip>
+  Use the download all feature to grade offline, then upload grades in bulk to speed up the grading process.
+</Tip>
+
+### Notifications
+
+Stay informed with automatic notifications:
+
+- Instructors receive emails when students submit assignments
+- Students receive notifications when grades are released
+- Reminders can be sent for upcoming due dates
+- Configurable notification preferences per assignment
+
+## Best Practices
+
+### For Instructors
+
+- Set clear due dates and accept-until dates to manage late submissions
+- Provide detailed instructions with examples or rubrics attached
+- Use the grade scale that matches your course grading policy
+- Enable resubmission for low-stakes assignments to encourage improvement
+- Release all grades at once to maintain fairness
+- Use feedback attachments for detailed rubrics or annotated submissions
+
+### For Students
+
+- Submit early to avoid last-minute technical issues
+- Save drafts frequently while working on inline text submissions
+- Check file formats and sizes before uploading attachments
+- Review submission confirmation after submitting
+- Check for feedback regularly after due dates pass
+
+## Technical Details
+
+The Assignments tool is implemented using:
+
+- **Core Service**: `AssignmentService` interface (assignment/api/src/java/org/sakaiproject/assignment/api/AssignmentService.java:58)
+- **Data Model**: `Assignment` and `AssignmentSubmission` entities using Hibernate JPA
+- **Storage**: Submission attachments stored via Content Hosting Service
+- **Integration**: Automatic gradebook synchronization via Grading Service
+
+<Note>
+  Assignment submissions support attachments up to the system-configured file size limit. Contact your administrator if you need to adjust these limits.
+</Note>
